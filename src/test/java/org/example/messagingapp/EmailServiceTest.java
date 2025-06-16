@@ -1,4 +1,4 @@
-package org.example.messagingapp.Test;
+package org.example.messagingapp;
 
 import org.example.messagingapp.model.EmailMessage;
 import org.example.messagingapp.Service.EmailService;
@@ -6,20 +6,25 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
+
 @SpringBootTest
-public class EmailServiceTest {
+class EmailServiceTest {
 
     @Autowired
     private EmailService emailService;
 
     @Test
     public void testSendEmail() {
+        // Configurar el mensaje
         EmailMessage message = new EmailMessage();
-        message.setTo("bax6351@outlook.es"); // Cambia por tu correo para pruebas
-        message.setSubject("Prueba de envío de email");
-        message.setText("Este es un mensaje de prueba desde la aplicación.");
+        message.setTo("tu-email-real@gmail.com"); // Cambia por tu email real
+        message.setSubject("Test desde JUnit");
+        message.setText("Este es un mensaje de prueba desde una prueba JUnit.");
 
+        // Intentar enviar el email
         boolean result = emailService.sendEmail(message);
-        System.out.println("Resultado del envío: " + result);
+
+        // Imprimir el resultado
+        System.out.println("Resultado del envío: " + (result ? "ÉXITO" : "FALLO"));
     }
 }
