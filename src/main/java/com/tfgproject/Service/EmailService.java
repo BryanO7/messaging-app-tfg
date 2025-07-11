@@ -1,6 +1,6 @@
-package org.example.messagingapp.Service;
+ package com.tfgproject.Service;
 
-import org.example.messagingapp.model.EmailMessage;
+import com.tfgproject.model.EmailMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,9 +21,7 @@ public class EmailService {
     @Autowired
     private JavaMailSender emailSender;
 
-    /**
-     * Envía un mensaje de email simple (solo texto)
-     */
+
     public boolean sendSimpleMessage(EmailMessage emailMessage) {
         try {
             logger.info("Enviando email simple a {}", emailMessage.getTo());
@@ -43,9 +41,7 @@ public class EmailService {
         }
     }
 
-    /**
-     * Envía un mensaje de email con adjuntos o contenido HTML
-     */
+
     public boolean sendMessageWithAttachment(EmailMessage emailMessage) {
         try {
             logger.info("Enviando email con adjunto/HTML a {}", emailMessage.getTo());
@@ -77,9 +73,7 @@ public class EmailService {
         }
     }
 
-    /**
-     * Método general para enviar email (decide el método apropiado según el contenido)
-     */
+
     public boolean sendEmail(EmailMessage emailMessage) {
         // Validar datos básicos
         if (emailMessage.getTo() == null || emailMessage.getTo().isEmpty()) {

@@ -1,4 +1,4 @@
-package org.example.messagingapp.model;
+package com.tfgproject.model;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

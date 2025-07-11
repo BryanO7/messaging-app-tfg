@@ -1,8 +1,8 @@
-package org.example.messagingapp.Service;
+package com.tfgproject.Service;
 
 import com.twilio.rest.api.v2010.account.Message;
 import com.twilio.type.PhoneNumber;
-import org.example.messagingapp.model.SmsMessage;
+import com.tfgproject.model.SmsMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;

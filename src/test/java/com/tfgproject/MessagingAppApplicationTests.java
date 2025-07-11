@@ -1,14 +1,14 @@
-package org.example.messagingapp;
+package com.tfgproject;
 
-import org.example.messagingapp.model.EmailMessage;
-import org.example.messagingapp.Service.EmailService;
+import com.tfgproject.Service.EmailService;
+import com.tfgproject.model.EmailMessage;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
-
 @SpringBootTest
-class EmailServiceTest {
+class MessagingAppApplicationTests {
+
 
     @Autowired
     private EmailService emailService;
@@ -17,7 +17,7 @@ class EmailServiceTest {
     public void testSendEmail() {
         // Configurar el mensaje
         EmailMessage message = new EmailMessage();
-        message.setTo("tu-email-real@gmail.com"); // Cambia por tu email real
+        message.setTo("bax6351@gmail.com"); // Cambia por tu email real
         message.setSubject("Test desde JUnit");
         message.setText("Este es un mensaje de prueba desde una prueba JUnit.");
 

@@ -1,4 +1,4 @@
-package org.example.messagingapp.config;
+package com.tfgproject.infrastructure.config;
 
 import com.twilio.Twilio;
 import org.springframework.beans.factory.annotation.Value;

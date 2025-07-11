@@ -1,7 +1,9 @@
-package org.example.messagingapp.Control;
+package com.tfgproject.Control;
 
-import org.example.messagingapp.model.SmsMessage;
-import org.example.messagingapp.Service.SmsService;
+import com.tfgproject.application.command.SendSmsCommand;
+import com.tfgproject.domain.model.MessageResult;
+import com.tfgproject.domain.port.in.SendMessageUseCase;
+import com.tfgproject.model.SmsMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,12 +15,12 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/sms")
-@CrossOrigin(origins = "*") // Para desarrollo - ajusta en producción
+@CrossOrigin(origins = "*")
 public class SmsController {
     private static final Logger logger = LoggerFactory.getLogger(SmsController.class);
 
     @Autowired
-    private SmsService smsService;
+    private SendMessageUseCase sendMessageUseCase; // Nueva dependencia hexagonal
 
     @PostMapping("/send")
     public ResponseEntity<Map<String, Object>> sendSms(@RequestBody SmsMessage smsMessage) {
@@ -26,41 +28,46 @@ public class SmsController {
 
         Map<String, Object> response = new HashMap<>();
 
-        boolean result = smsService.sendSms(smsMessage);
+        // Convertimos a comando hexagonal
+        SendSmsCommand command = SendSmsCommand.fromSmsMessage(smsMessage);
 
-        if (result) {
+        // Usamos el caso de uso hexagonal
+        MessageResult result = sendMessageUseCase.sendSms(command);
+
+        if (result.isSuccess()) {
             response.put("success", true);
-            response.put("message", "SMS enviado correctamente");
+            response.put("message", result.getMessage());
             return ResponseEntity.ok(response);
         } else {
             response.put("success", false);
-            response.put("message", "Error al enviar el SMS");
+            response.put("message", result.getMessage());
             return ResponseEntity.internalServerError().body(response);
         }
     }
 
     @GetMapping("/test")
     public ResponseEntity<Map<String, Object>> testSms(@RequestParam(required = false) String to) {
-        String phoneNumber = (to != null && !to.isEmpty()) ? to : "644023859"; // Usa el número proporcionado o el predeterminado
+        String phoneNumber = (to != null && !to.isEmpty()) ? to : "644023859";
 
         logger.info("Solicitud de prueba de SMS a: {}", phoneNumber);
 
-        SmsMessage testMessage = new SmsMessage();
-        testMessage.setTo(phoneNumber);
-        testMessage.setText("Este es un mensaje de prueba enviado desde la aplicación de mensajería unificada TFG.");
-        testMessage.setSender("TFG-App");
+        // Crear comando directamente
+        SendSmsCommand command = new SendSmsCommand();
+        command.setTo(phoneNumber);
+        command.setText("Este es un mensaje de prueba enviado desde la aplicación de mensajería unificada TFG.");
+        command.setSender("TFG-App");
 
         Map<String, Object> response = new HashMap<>();
 
-        boolean result = smsService.sendSms(testMessage);
+        MessageResult result = sendMessageUseCase.sendSms(command);
 
-        if (result) {
+        if (result.isSuccess()) {
             response.put("success", true);
             response.put("message", "SMS de prueba enviado correctamente a " + phoneNumber);
             return ResponseEntity.ok(response);
         } else {
             response.put("success", false);
-            response.put("message", "Error al enviar el SMS de prueba");
+            response.put("message", "Error al enviar el SMS de prueba: " + result.getMessage());
             return ResponseEntity.internalServerError().body(response);
         }
     }
