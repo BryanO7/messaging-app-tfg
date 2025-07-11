@@ -1,7 +1,7 @@
 package com.tfgproject;
 
-import com.tfgproject.Service.EmailService;
-import com.tfgproject.model.EmailMessage;
+import com.tfgproject.infrastructure.service.EmailService;
+import com.tfgproject.shared.model.EmailMessage;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;

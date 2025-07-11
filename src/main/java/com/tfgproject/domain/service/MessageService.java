@@ -21,28 +21,29 @@ public class MessageService implements SendMessageUseCase {
 
     @Override
     public MessageResult sendEmail(SendEmailCommand command) {
-        // Validaciones de dominio para email
+        System.out.println("🏰 DOMAIN: MessageService.sendEmail() ejecutándose");
+        System.out.println("🏰 DOMAIN: Validando email: " + command.getTo());
+
+        // Validaciones
         if (command.getTo() == null || command.getTo().trim().isEmpty()) {
+            System.out.println("🏰 DOMAIN: Validación falló - email vacío");
             return MessageResult.failure("Destinatario requerido");
         }
 
-        if (command.getSubject() == null || command.getSubject().trim().isEmpty()) {
-            return MessageResult.failure("Asunto requerido");
-        }
-
-        if (command.getText() == null || command.getText().trim().isEmpty()) {
-            return MessageResult.failure("Contenido del mensaje requerido");
-        }
+        System.out.println("🏰 DOMAIN: Llamando al PORT OUT (EmailServicePort)");
 
         try {
-            boolean result = emailService.sendEmail(command);
+            boolean result = emailService.sendEmail(command);  // ← AQUÍ LLAMA AL PORT OUT
 
             if (result) {
+                System.out.println("🏰 DOMAIN: PORT OUT retornó SUCCESS");
                 return MessageResult.success("Email enviado correctamente");
             } else {
+                System.out.println("🏰 DOMAIN: PORT OUT retornó FAILURE");
                 return MessageResult.failure("Error al enviar el email");
             }
         } catch (Exception e) {
+            System.out.println("🏰 DOMAIN: Excepción capturada: " + e.getMessage());
             return MessageResult.failure("Error inesperado: " + e.getMessage());
         }
     }

@@ -3,7 +3,7 @@ package com.tfgproject.application.command;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
-import com.tfgproject.model.EmailMessage;
+import com.tfgproject.shared.model.EmailMessage;
 
 @Data
 @NoArgsConstructor
