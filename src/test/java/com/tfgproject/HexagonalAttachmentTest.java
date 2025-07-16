@@ -28,7 +28,7 @@ public class HexagonalAttachmentTest {
 
         try (FileWriter writer = new FileWriter(filePath.toFile())) {
             writer.write("=== TFG MESSAGING APP - ARQUITECTURA HEXAGONAL ===\n\n");
-            writer.write("Este archivo demuestra el envío de attachments\n");
+            writer.write("Este archivo demuestra el envío de attaachments\n");
             writer.write("utilizando la arquitectura hexagonal implementada.\n\n");
             writer.write("Flujo:\n");
             writer.write("Test → Port IN → Domain → Port OUT → Adapter → EmailService\n\n");
