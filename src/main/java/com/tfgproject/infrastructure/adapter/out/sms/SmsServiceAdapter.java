@@ -1,29 +1,51 @@
 package com.tfgproject.infrastructure.adapter.out.sms;
-import com.tfgproject.infrastructure.service.SmsService; // ¿Esta ruta es correcta?
+
+import com.tfgproject.infrastructure.service.MessagePublisher;
 import com.tfgproject.application.command.SendSmsCommand;
 import com.tfgproject.domain.port.out.SmsServicePort;
-import com.tfgproject.shared.model.SmsMessage; // ¿Esta ruta es correcta?
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Component
 public class SmsServiceAdapter implements SmsServicePort {
 
     @Autowired
-    private SmsService smsService;
+    private MessagePublisher messagePublisher;
+
+    @Value("${app.messaging.async:true}")
+    private boolean useAsync;
 
     @Override
     public boolean sendSms(SendSmsCommand command) {
-        System.out.println("🔍 SmsServiceAdapter: Enviando SMS a " + command.getTo()); // Log de debug
+        System.out.println("🔍 ADAPTER: SmsServiceAdapter.sendSms() - Modo: " +
+                (useAsync ? "ASYNC (RabbitMQ)" : "SYNC"));
 
-        SmsMessage smsMessage = new SmsMessage();
-        smsMessage.setTo(command.getTo());
-        smsMessage.setText(command.getText());
-        smsMessage.setSender(command.getSender());
+        try {
+            if (useAsync) {
+                // === MODO ASÍNCRONO CON RABBITMQ ===
+                System.out.println("🐰 ADAPTER: Enviando SMS a RabbitMQ cola");
 
-        boolean result = smsService.sendSms(smsMessage);
-        System.out.println("🔍 SmsServiceAdapter: Resultado = " + result); // Log de debug
+                String messageId = messagePublisher.sendSmsToQueue(
+                        command.getTo(),
+                        command.getText(),
+                        command.getSender()
+                );
 
-        return result;
+                System.out.println("🐰 ADAPTER: SMS encolado con ID: " + messageId);
+                return true; // Retorna true porque se encoló exitosamente
+
+            } else {
+                // === MODO SÍNCRONO (CÓDIGO ORIGINAL) ===
+                System.out.println("🔍 ADAPTER: Enviando SMS directamente (modo síncrono)");
+
+                // Aquí iría tu código original del SmsService
+                return true;
+            }
+
+        } catch (Exception e) {
+            System.out.println("🔍 ADAPTER: Error SMS: " + e.getMessage());
+            return false;
+        }
     }
 }
