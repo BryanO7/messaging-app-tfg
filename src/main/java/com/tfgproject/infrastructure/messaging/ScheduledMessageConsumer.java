@@ -20,7 +20,7 @@ public class ScheduledMessageConsumer {
 
     @RabbitListener(queues = RabbitMQConfig.SCHEDULED_QUEUE)
     public void processScheduledMessage(QueueMessage queueMessage) {
-        logger.info("⏰ Recibido mensaje programado. ID: {}", queueMessage.getId());
+        logger.info("⏰ Recibido mensaje programados. ID: {}", queueMessage.getId());
 
         try {
             LocalDateTime now = LocalDateTime.now();
