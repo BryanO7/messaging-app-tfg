@@ -6,7 +6,7 @@ import com.tfgproject.application.dto.request.ScheduleRequest;
 import com.tfgproject.application.dto.request.MessageRequest;
 import com.tfgproject.application.dto.response.MessageResponse;
 import com.tfgproject.application.dto.response.QueueStatusResponse;
-import com.tfgproject.infrastructure.service.MessagePublisher;
+import com.tfgproject.infrastructure.service.AsyncMessagePublisher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,7 +25,7 @@ public class MessagingController {
     private static final Logger logger = LoggerFactory.getLogger(MessagingController.class);
 
     @Autowired
-    private MessagePublisher messagePublisher;
+    private AsyncMessagePublisher messagePublisher;
 
     // === CASO DE USO 02: DIFUSIÓN ===
     @PostMapping("/broadcast")

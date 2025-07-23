@@ -1,6 +1,6 @@
 package com.tfgproject.infrastructure.adapter.out.sms;
 
-import com.tfgproject.infrastructure.service.MessagePublisher;
+import com.tfgproject.infrastructure.service.AsyncMessagePublisher;
 import com.tfgproject.application.command.SendSmsCommand;
 import com.tfgproject.domain.port.out.SmsServicePort;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 public class SmsServiceAdapter implements SmsServicePort {
 
     @Autowired
-    private MessagePublisher messagePublisher;
+    private AsyncMessagePublisher messagePublisher;
 
     @Value("${app.messaging.async:true}")
     private boolean useAsync;

@@ -6,27 +6,95 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 @Service
-public class MessagePublisher {
-    private static final Logger logger = LoggerFactory.getLogger(MessagePublisher.class);
+public class AsyncMessagePublisher {
+    private static final Logger logger = LoggerFactory.getLogger(AsyncMessagePublisher.class);
 
     @Autowired
     private RabbitTemplate rabbitTemplate;
 
     @Autowired
-    private ScheduledMessageProcessor scheduledMessageProcessor;
+    private AsyncScheduledMessageProcessor scheduledMessageProcessor;
 
-    // === CASO DE USO 01: ENVÍO ÚNICO ===
+    /**
+     * PROGRAMACIÓN ASÍNCRONA DE MENSAJES - NO BLOQUEA
+     */
+    @Async("taskExecutor")
+    public CompletableFuture<String> scheduleMessageAsync(String to, String subject,
+                                                          String content, LocalDateTime scheduledTime) {
+        logger.info("⏰ Programando mensaje asincrónicamente para: {}", scheduledTime);
+
+        try {
+            QueueMessage message = QueueMessage.forEmail(to, subject, content);
+            message.setScheduledTime(scheduledTime);
+
+            // Enviar a cola de programados o agregar al processor según la lógica
+            if (scheduledTime.isAfter(LocalDateTime.now().plusMinutes(1))) {
+                // Si es más de 1 minuto en el futuro, usar cola de RabbitMQ
+                rabbitTemplate.convertAndSend(RabbitMQConfig.SCHEDULED_QUEUE, message);
+                logger.info("📨 Mensaje enviado a cola de programados: {}", message.getId());
+            } else {
+                // Si es muy pronto, usar el processor en memoria
+                scheduledMessageProcessor.addScheduledMessageAsync(message);
+                logger.info("🧠 Mensaje agregado a processor en memoria: {}", message.getId());
+            }
+
+            logger.info("✅ Mensaje programado exitosamente (ASYNC). ID: {}", message.getId());
+            return CompletableFuture.completedFuture(message.getId());
+
+        } catch (Exception e) {
+            logger.error("❌ Error programando mensaje: {}", e.getMessage());
+            return CompletableFuture.completedFuture(null);
+        }
+    }
+
+    /**
+     * Método síncrono mejorado (compatible con código existente)
+     */
+    public String scheduleMessage(String to, String subject, String content, LocalDateTime scheduledTime) {
+        logger.info("⏰ Programando mensaje para: {}", scheduledTime);
+
+        QueueMessage message = QueueMessage.forEmail(to, subject, content);
+        message.setScheduledTime(scheduledTime);
+
+        try {
+            if (scheduledTime.isAfter(LocalDateTime.now())) {
+                // Usar el processor asíncrono - NO BLOQUEA
+                scheduledMessageProcessor.addScheduledMessage(message);
+                logger.info("✅ Mensaje programado exitosamente. ID: {}", message.getId());
+                return message.getId();
+            } else {
+                logger.warn("⚠️ Fecha programada en el pasado, enviando inmediatamente");
+                // Enviar inmediatamente
+                rabbitTemplate.convertAndSend(
+                        RabbitMQConfig.DIRECT_EXCHANGE,
+                        RabbitMQConfig.EMAIL_ROUTING_KEY,
+                        message
+                );
+                return message.getId();
+            }
+
+        } catch (Exception e) {
+            logger.error("❌ Error programando mensaje: {}", e.getMessage());
+            throw new RuntimeException("Error al programar mensaje: " + e.getMessage());
+        }
+    }
+
+    // === MÉTODOS PARA ENVÍO INMEDIATO ===
+
     public String sendEmailToQueue(String to, String subject, String content) {
         return sendEmailToQueue(to, subject, content, null, false);
     }
 
-    public String sendEmailToQueue(String to, String subject, String content, String attachmentPath, boolean isHtml) {
+    public String sendEmailToQueue(String to, String subject, String content,
+                                   String attachmentPath, boolean isHtml) {
         logger.info("📧 Enviando email a cola: {}", to);
 
         QueueMessage message = QueueMessage.forEmail(to, subject, content);
@@ -90,34 +158,6 @@ public class MessagePublisher {
         } catch (Exception e) {
             logger.error("❌ Error encolando difusión: {}", e.getMessage());
             throw new RuntimeException("Error al encolar difusión: " + e.getMessage());
-        }
-    }
-
-    // === CASO DE USO 04: PROGRAMACIÓN ===
-    public String scheduleMessage(String to, String subject, String content, LocalDateTime scheduledTime) {
-        logger.info("⏰ Programando mensaje para: {}", scheduledTime);
-
-        QueueMessage message = QueueMessage.forEmail(to, subject, content);
-        message.setScheduledTime(scheduledTime);
-
-        try {
-            if (scheduledTime.isAfter(LocalDateTime.now())) {
-                // Enviar a cola de programados
-                rabbitTemplate.convertAndSend(
-                        RabbitMQConfig.SCHEDULED_QUEUE,
-                        message
-                );
-
-                logger.info("✅ Mensaje programado exitosamente. ID: {}", message.getId());
-                return message.getId();
-            } else {
-                logger.warn("⚠️ Fecha programada en el pasado, enviando inmediatamente");
-                return sendEmailToQueue(to, subject, content);
-            }
-
-        } catch (Exception e) {
-            logger.error("❌ Error programando mensaje: {}", e.getMessage());
-            throw new RuntimeException("Error al programar mensaje: " + e.getMessage());
         }
     }
 

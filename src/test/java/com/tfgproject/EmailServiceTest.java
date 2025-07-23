@@ -32,6 +32,7 @@ class EmailServiceTest {
         System.out.println("Éxito: " + result.isSuccess());
     }
 
+
     @Test
     public void testEmailValidations() {
         System.out.println("=== TESTS DE VALIDACIÓN ===");

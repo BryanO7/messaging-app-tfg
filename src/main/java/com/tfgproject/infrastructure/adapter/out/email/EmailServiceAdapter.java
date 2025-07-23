@@ -1,6 +1,6 @@
 package com.tfgproject.infrastructure.adapter.out.email;
 
-import com.tfgproject.infrastructure.service.MessagePublisher;
+import com.tfgproject.infrastructure.service.AsyncMessagePublisher;
 import com.tfgproject.application.command.SendEmailCommand;
 import com.tfgproject.domain.port.out.EmailServicePort;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 public class EmailServiceAdapter implements EmailServicePort {
 
     @Autowired
-    private MessagePublisher messagePublisher;
+    private AsyncMessagePublisher messagePublisher;
 
     @Value("${app.messaging.async:true}")
     private boolean useAsync;

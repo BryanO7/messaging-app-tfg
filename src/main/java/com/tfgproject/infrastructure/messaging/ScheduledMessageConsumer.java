@@ -1,7 +1,7 @@
 package com.tfgproject.infrastructure.messaging;
 
 import com.tfgproject.infrastructure.config.RabbitMQConfig;
-import com.tfgproject.infrastructure.service.ScheduledMessageProcessor;
+import com.tfgproject.infrastructure.service.AsyncScheduledMessageProcessor;
 import com.tfgproject.shared.model.QueueMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,7 +16,7 @@ public class ScheduledMessageConsumer {
     private static final Logger logger = LoggerFactory.getLogger(ScheduledMessageConsumer.class);
 
     @Autowired
-    private ScheduledMessageProcessor scheduledMessageProcessor;
+    private AsyncScheduledMessageProcessor scheduledMessageProcessor;
 
     @RabbitListener(queues = RabbitMQConfig.SCHEDULED_QUEUE)
     public void processScheduledMessage(QueueMessage queueMessage) {

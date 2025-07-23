@@ -1,7 +1,7 @@
 // src/test/java/com/tfgproject/ScheduledEmailTest.java
 package com.tfgproject;
 
-import com.tfgproject.infrastructure.service.MessagePublisher;
+import com.tfgproject.infrastructure.service.AsyncMessagePublisher;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -13,7 +13,7 @@ import java.util.concurrent.TimeUnit;
 public class ScheduledEmailTest {
 
     @Autowired
-    private MessagePublisher messagePublisher;
+    private AsyncMessagePublisher messagePublisher;
 
     @Test
     public void testScheduledEmailIn10Minutes() throws InterruptedException {
