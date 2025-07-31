@@ -1,5 +1,6 @@
 package com.tfgproject.infrastructure.service;
 
+import com.tfgproject.domain.service.MessageStatusService; // ✅ NUEVO IMPORT
 import com.tfgproject.infrastructure.config.RabbitMQConfig;
 import com.tfgproject.shared.model.QueueMessage;
 import org.slf4j.Logger;
@@ -23,6 +24,9 @@ public class AsyncMessagePublisher {
     @Autowired
     private AsyncScheduledMessageProcessor scheduledMessageProcessor;
 
+    @Autowired
+    private MessageStatusService messageStatusService; // ✅ NUEVA DEPENDENCIA
+
     /**
      * PROGRAMACIÓN ASÍNCRONA DE MENSAJES - NO BLOQUEA
      */
@@ -34,6 +38,9 @@ public class AsyncMessagePublisher {
         try {
             QueueMessage message = QueueMessage.forEmail(to, subject, content);
             message.setScheduledTime(scheduledTime);
+
+            // ✅ NUEVO: Crear status de mensaje programado
+            messageStatusService.createMessageStatus(message.getId(), to, "EMAIL", "currentUser");
 
             // Enviar a cola de programados o agregar al processor según la lógica
             if (scheduledTime.isAfter(LocalDateTime.now().plusMinutes(1))) {
@@ -65,6 +72,9 @@ public class AsyncMessagePublisher {
         message.setScheduledTime(scheduledTime);
 
         try {
+            // ✅ NUEVO: Crear status de mensaje programado
+            messageStatusService.createMessageStatus(message.getId(), to, "EMAIL", "currentUser");
+
             if (scheduledTime.isAfter(LocalDateTime.now())) {
                 // Usar el processor asíncrono - NO BLOQUEA
                 scheduledMessageProcessor.addScheduledMessage(message);
@@ -83,6 +93,14 @@ public class AsyncMessagePublisher {
 
         } catch (Exception e) {
             logger.error("❌ Error programando mensaje: {}", e.getMessage());
+
+            // ✅ NUEVO: Actualizar status a fallido
+            messageStatusService.updateMessageStatus(
+                    message.getId(),
+                    com.tfgproject.domain.model.MessageStatusEnum.FAILED,
+                    e.getMessage()
+            );
+
             throw new RuntimeException("Error al programar mensaje: " + e.getMessage());
         }
     }
@@ -102,6 +120,9 @@ public class AsyncMessagePublisher {
         message.setHtml(isHtml);
 
         try {
+            // ✅ NUEVO: Crear status ANTES de enviar a la cola
+            messageStatusService.createMessageStatus(message.getId(), to, "EMAIL", "currentUser");
+
             rabbitTemplate.convertAndSend(
                     RabbitMQConfig.DIRECT_EXCHANGE,
                     RabbitMQConfig.EMAIL_ROUTING_KEY,
@@ -113,6 +134,14 @@ public class AsyncMessagePublisher {
 
         } catch (Exception e) {
             logger.error("❌ Error encolando email: {}", e.getMessage());
+
+            // ✅ NUEVO: Actualizar status a fallido si falla el encolado
+            messageStatusService.updateMessageStatus(
+                    message.getId(),
+                    com.tfgproject.domain.model.MessageStatusEnum.FAILED,
+                    e.getMessage()
+            );
+
             throw new RuntimeException("Error al encolar email: " + e.getMessage());
         }
     }
@@ -123,6 +152,9 @@ public class AsyncMessagePublisher {
         QueueMessage message = QueueMessage.forSms(to, content, sender);
 
         try {
+            // ✅ NUEVO: Crear status ANTES de enviar a la cola
+            messageStatusService.createMessageStatus(message.getId(), to, "SMS", "currentUser");
+
             rabbitTemplate.convertAndSend(
                     RabbitMQConfig.DIRECT_EXCHANGE,
                     RabbitMQConfig.SMS_ROUTING_KEY,
@@ -134,6 +166,14 @@ public class AsyncMessagePublisher {
 
         } catch (Exception e) {
             logger.error("❌ Error encolando SMS: {}", e.getMessage());
+
+            // ✅ NUEVO: Actualizar status a fallido si falla el encolado
+            messageStatusService.updateMessageStatus(
+                    message.getId(),
+                    com.tfgproject.domain.model.MessageStatusEnum.FAILED,
+                    e.getMessage()
+            );
+
             throw new RuntimeException("Error al encolar SMS: " + e.getMessage());
         }
     }
@@ -145,6 +185,16 @@ public class AsyncMessagePublisher {
         QueueMessage message = QueueMessage.forBroadcast(recipients, content, subject);
 
         try {
+            // ✅ NUEVO: Crear status para cada destinatario en la difusión
+            for (String recipient : recipients) {
+                messageStatusService.createMessageStatus(
+                        message.getId() + "-" + recipient.hashCode(), // ID único por destinatario
+                        recipient,
+                        "BROADCAST",
+                        "currentUser"
+                );
+            }
+
             // Usar FANOUT para enviar a todas las colas
             rabbitTemplate.convertAndSend(
                     RabbitMQConfig.FANOUT_EXCHANGE,
@@ -157,7 +207,82 @@ public class AsyncMessagePublisher {
 
         } catch (Exception e) {
             logger.error("❌ Error encolando difusión: {}", e.getMessage());
+
+            // ✅ NUEVO: Actualizar status a fallido para todos los destinatarios
+            for (String recipient : recipients) {
+                messageStatusService.updateMessageStatus(
+                        message.getId() + "-" + recipient.hashCode(),
+                        com.tfgproject.domain.model.MessageStatusEnum.FAILED,
+                        e.getMessage()
+                );
+            }
+
             throw new RuntimeException("Error al encolar difusión: " + e.getMessage());
+        }
+    }
+    public String scheduleSms(String to, String content, String sender, LocalDateTime scheduledTime) {
+        logger.info("📱 Programando SMS para: {}", scheduledTime);
+
+        QueueMessage message = QueueMessage.forSms(to, content, sender); // ← IMPORTANTE: forSms()
+        message.setScheduledTime(scheduledTime);
+
+        try {
+            // ✅ NUEVO: Crear status de SMS programado
+            messageStatusService.createMessageStatus(message.getId(), to, "SMS", "currentUser");
+
+            if (scheduledTime.isAfter(LocalDateTime.now())) {
+                // Usar el processor asíncrono - NO BLOQUEA
+                scheduledMessageProcessor.addScheduledMessage(message);
+                logger.info("✅ SMS programado exitosamente. ID: {}", message.getId());
+                return message.getId();
+            } else {
+                logger.warn("⚠️ Fecha programada en el pasado, enviando SMS inmediatamente");
+                // Enviar inmediatamente
+                rabbitTemplate.convertAndSend(
+                        RabbitMQConfig.DIRECT_EXCHANGE,
+                        RabbitMQConfig.SMS_ROUTING_KEY,  // ← IMPORTANTE: SMS_ROUTING_KEY
+                        message
+                );
+                return message.getId();
+            }
+
+        } catch (Exception e) {
+            logger.error("❌ Error programando SMS: {}", e.getMessage());
+
+            // ✅ NUEVO: Actualizar status a fallido
+            messageStatusService.updateMessageStatus(
+                    message.getId(),
+                    com.tfgproject.domain.model.MessageStatusEnum.FAILED,
+                    e.getMessage()
+            );
+
+            throw new RuntimeException("Error al programar SMS: " + e.getMessage());
+        }
+    }
+
+    /**
+     * PROGRAMAR SMS ASÍNCRONO (NUEVO MÉTODO)
+     */
+    @Async("taskExecutor")
+    public CompletableFuture<String> scheduleSmsAsync(String to, String content, String sender, LocalDateTime scheduledTime) {
+        logger.info("📱 Programando SMS asincrónicamente para: {}", scheduledTime);
+
+        try {
+            QueueMessage message = QueueMessage.forSms(to, content, sender); // ← IMPORTANTE: forSms()
+            message.setScheduledTime(scheduledTime);
+
+            // ✅ NUEVO: Crear status de SMS programado
+            messageStatusService.createMessageStatus(message.getId(), to, "SMS", "currentUser");
+
+            // Usar el processor asíncrono
+            scheduledMessageProcessor.addScheduledMessageAsync(message);
+
+            logger.info("✅ SMS programado exitosamente (ASYNC). ID: {}", message.getId());
+            return CompletableFuture.completedFuture(message.getId());
+
+        } catch (Exception e) {
+            logger.error("❌ Error programando SMS: {}", e.getMessage());
+            return CompletableFuture.completedFuture(null);
         }
     }
 
@@ -168,11 +293,26 @@ public class AsyncMessagePublisher {
         message.setRetryCount(message.getRetryCount() + 1);
 
         try {
+            // ✅ NUEVO: Actualizar status a PROCESSING cuando se reintenta
+            messageStatusService.updateMessageStatus(
+                    message.getId(),
+                    com.tfgproject.domain.model.MessageStatusEnum.PROCESSING,
+                    "Reintento #" + message.getRetryCount()
+            );
+
             rabbitTemplate.convertAndSend(queueName, message);
             logger.info("✅ Mensaje reenviado a cola: {}", queueName);
 
         } catch (Exception e) {
             logger.error("❌ Error reenviando mensaje: {}", e.getMessage());
+
+            // ✅ NUEVO: Actualizar status a fallido si falla el reintento
+            messageStatusService.updateMessageStatus(
+                    message.getId(),
+                    com.tfgproject.domain.model.MessageStatusEnum.FAILED,
+                    "Error en reintento: " + e.getMessage()
+            );
+
             throw new RuntimeException("Error al reenviar mensaje: " + e.getMessage());
         }
     }
