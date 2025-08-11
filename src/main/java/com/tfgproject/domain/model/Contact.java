@@ -1,9 +1,12 @@
+// src/main/java/com/tfgproject/domain/model/Contact.java
 package com.tfgproject.domain.model;
 
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
+import lombok.EqualsAndHashCode;
+import lombok.ToString;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.util.Set;
@@ -15,9 +18,12 @@ import java.util.HashSet;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@EqualsAndHashCode(onlyExplicitlyIncluded = true) // ✅ Solo incluir ID para equals/hashCode
+@ToString(exclude = "categories") // ✅ Excluir categories de toString
 public class Contact {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @EqualsAndHashCode.Include // ✅ Solo usar ID para equals/hashCode
     private Long id;
 
     @Column(nullable = false)
@@ -33,6 +39,7 @@ public class Contact {
     private String notes; // Para notas adicionales
 
     @ManyToMany(mappedBy = "contacts", fetch = FetchType.LAZY)
+    @Builder.Default // ✅ Inicializar por defecto
     private Set<Category> categories = new HashSet<>();
 
     private LocalDateTime createdAt;

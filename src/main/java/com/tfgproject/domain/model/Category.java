@@ -1,9 +1,12 @@
+// src/main/java/com/tfgproject/domain/model/Category.java
 package com.tfgproject.domain.model;
 
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
+import lombok.EqualsAndHashCode;
+import lombok.ToString;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.util.Set;
@@ -15,9 +18,12 @@ import java.util.HashSet;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@EqualsAndHashCode(onlyExplicitlyIncluded = true) // ✅ Solo incluir ID para equals/hashCode
+@ToString(exclude = {"contacts", "subcategories"}) // ✅ Excluir relaciones de toString
 public class Category {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @EqualsAndHashCode.Include // ✅ Solo usar ID para equals/hashCode
     private Long id;
 
     @Column(nullable = false)
@@ -30,6 +36,7 @@ public class Category {
     private Category parent;
 
     @OneToMany(mappedBy = "parent", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @Builder.Default
     private Set<Category> subcategories = new HashSet<>();
 
     @ManyToMany(fetch = FetchType.LAZY, cascade = {CascadeType.PERSIST, CascadeType.MERGE})
@@ -38,6 +45,7 @@ public class Category {
             joinColumns = @JoinColumn(name = "category_id"),
             inverseJoinColumns = @JoinColumn(name = "contact_id")
     )
+    @Builder.Default
     private Set<Contact> contacts = new HashSet<>();
 
     private LocalDateTime createdAt;
