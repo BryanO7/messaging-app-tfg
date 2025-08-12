@@ -1,0 +1,93 @@
+<!-- src/app/components/contact-list/contact-list.component.html -->
+<div class="contact-list-container">
+  <div class="header">
+    <h2>Gestión de Contactos</h2>
+    <button class="btn btn-primary" routerLink="/contacts/new">
+      + Nuevo Contacto
+    </button>
+  </div>
+
+  <!-- Barra de búsqueda -->
+  <div class="search-bar">
+    <div class="search-input-group">
+      <input
+        type="text"
+        [(ngModel)]="searchQuery"
+        (keyup.enter)="searchContacts()"
+        placeholder="Buscar contactos por nombre, email o teléfono..."
+        class="form-control">
+      <button class="btn btn-outline-secondary" (click)="searchContacts()">
+        🔍 Buscar
+      </button>
+      <button class="btn btn-outline-secondary" (click)="clearSearch()" *ngIf="searchQuery">
+        ✕ Limpiar
+      </button>
+    </div>
+  </div>
+
+  <!-- Mensaje de error -->
+  <div class="alert alert-danger" *ngIf="error">
+    {{ error }}
+    <button class="btn btn-sm btn-outline-danger ms-2" (click)="loadContacts()">
+      Reintentar
+    </button>
+  </div>
+
+  <!-- Loading spinner -->
+  <div class="text-center" *ngIf="loading">
+    <div class="spinner-border" role="status">
+      <span class="visually-hidden">Cargando...</span>
+    </div>
+  </div>
+
+  <!-- Lista de contactos -->
+  <div class="contacts-grid" *ngIf="!loading">
+    <div class="contact-card" *ngFor="let contact of contacts; trackBy: trackByContactId">
+      <div class="contact-header">
+        <h5 class="contact-name">{{ contact.name }}</h5>
+        <div class="contact-actions">
+          <button
+            class="btn btn-sm btn-outline-primary"
+            [routerLink]="['/contacts', contact.id, 'edit']">
+            ✏️ Editar
+          </button>
+          <button
+            class="btn btn-sm btn-outline-danger"
+            (click)="deleteContact(contact.id!)">
+            🗑️ Eliminar
+          </button>
+        </div>
+      </div>
+
+      <div class="contact-info">
+        <div class="info-item" *ngIf="contact.email">
+          <span class="info-label">📧 Email:</span>
+          <span class="info-value">{{ contact.email }}</span>
+        </div>
+
+        <div class="info-item" *ngIf="contact.phone">
+          <span class="info-label">📱 Teléfono:</span>
+          <span class="info-value">{{ contact.phone }}</span>
+        </div>
+
+        <div class="info-item" *ngIf="contact.whatsappId">
+          <span class="info-label">💬 WhatsApp:</span>
+          <span class="info-value">{{ contact.whatsappId }}</span>
+        </div>
+
+        <div class="info-item" *ngIf="contact.notes">
+          <span class="info-label">📝 Notas:</span>
+          <span class="info-value">{{ contact.notes }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mensaje cuando no hay contactos -->
+  <div class="empty-state" *ngIf="!loading && contacts.length === 0">
+    <p>No se encontraron contactos</p>
+    <button class="btn btn-primary" routerLink="/contacts/new">
+      Crear primer contacto
+    </button>
+  </div>
+</div>

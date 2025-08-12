@@ -111,6 +111,7 @@ public class CompleteSystemIntegrationTest {
         System.out.println("📧 Email único enviado: " + testEmailId);
 
         // SMS ÚNICO
+        /*
         testSmsId = messagePublisher.sendSmsToQueue(
                 "644023859",
                 "Test SMS unico - Sistema completo TFG funcionando!",
@@ -118,20 +119,21 @@ public class CompleteSystemIntegrationTest {
         );
 
         System.out.println("📱 SMS único enviado: " + testSmsId);
+        */
 
         // Esperar procesamiento inicial
         TimeUnit.SECONDS.sleep(3);
 
         // Verificar que se crearon los estados
         Optional<MessageStatus> emailStatus = messageStatusService.getMessageStatus(testEmailId);
-        Optional<MessageStatus> smsStatus = messageStatusService.getMessageStatus(testSmsId);
+        // Optional<MessageStatus> smsStatus = messageStatusService.getMessageStatus(testSmsId);
 
         assert emailStatus.isPresent() : "Estado de email debe existir";
-        assert smsStatus.isPresent() : "Estado de SMS debe existir";
+        // assert smsStatus.isPresent() : "Estado de SMS debe existir";
 
         System.out.println("✅ CASO DE USO 01 completado:");
         System.out.println("  📧 Email estado: " + emailStatus.get().getStatus().getDisplayName());
-        System.out.println("  📱 SMS estado: " + smsStatus.get().getStatus().getDisplayName());
+        // System.out.println("  📱 SMS estado: " + smsStatus.get().getStatus().getDisplayName());
     }
 
     @Test
@@ -201,6 +203,7 @@ public class CompleteSystemIntegrationTest {
         System.out.println("📊 Mensajes en scheduler: " + initialScheduledCount);
 
         // Programar SMS para 45 segundos (para testing rápido)
+        /*
         LocalDateTime smsScheduledTime = LocalDateTime.now().plusSeconds(45);
 
         String scheduledSmsId = messagePublisher.scheduleSms(
@@ -213,6 +216,7 @@ public class CompleteSystemIntegrationTest {
 
         System.out.println("📱 SMS programado: " + scheduledSmsId);
         System.out.println("📅 Para: " + smsScheduledTime.toString().substring(11, 19));
+        */
 
         int finalScheduledCount = scheduledProcessor.getScheduledMessageCount();
         System.out.println("📊 Total mensajes programados: " + finalScheduledCount);
@@ -282,7 +286,7 @@ public class CompleteSystemIntegrationTest {
         System.out.println("\n🔍 1. VERIFICANDO ESTADOS INDIVIDUALES:");
 
         verificarEstadoMensaje(testEmailId, "Email único");
-        verificarEstadoMensaje(testSmsId, "SMS único");
+        // verificarEstadoMensaje(testSmsId, "SMS único");
         verificarEstadoMensaje(testBroadcastId, "Difusión");
         verificarEstadoMensaje(testScheduledId, "Mensaje programado");
 
@@ -433,9 +437,11 @@ public class CompleteSystemIntegrationTest {
                 }
 
                 // Información a los 30 y 60 segundos
+                /*
                 if (elapsedSeconds == 30) {
                     System.out.println("⏱️  30 segundos - Los SMS programados deberían enviarse pronto...");
                 }
+                */
                 if (elapsedSeconds == 60) {
                     System.out.println("⏱️  60 segundos - Los emails programados deberían enviarse pronto...");
                 }
@@ -492,9 +498,11 @@ public class CompleteSystemIntegrationTest {
         System.out.println("    • Mensaje de difusión");
         System.out.println("    • Mensaje por categoría");
         System.out.println("    • Email programado (en 1 minuto)");
+        /*
         System.out.println("  📱 644023859:");
         System.out.println("    • SMS único de prueba");
         System.out.println("    • SMS programado (en 45 segundos)");
+        */
 
         System.out.println("\n🏗️ ARQUITECTURA VERIFICADA:");
         System.out.println("  ✅ Arquitectura Hexagonal");

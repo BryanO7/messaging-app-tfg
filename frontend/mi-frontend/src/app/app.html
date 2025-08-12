@@ -1,0 +1,17 @@
+<!-- src/app/app.html -->
+<div class="app-container">
+  <nav class="navbar">
+    <div class="nav-brand">
+      <h1>📨 {{ title }}</h1>
+    </div>
+    <div class="nav-links">
+      <a routerLink="/contacts" routerLinkActive="active">👥 Contactos</a>
+      <a routerLink="/categories" routerLinkActive="active">📁 Categorías</a>
+      <a routerLink="/messages" routerLinkActive="active">✉️ Mensajes</a>
+    </div>
+  </nav>
+
+  <main class="main-content">
+    <router-outlet></router-outlet>
+  </main>
+</div>
