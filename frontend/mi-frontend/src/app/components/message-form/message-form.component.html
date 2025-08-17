@@ -1,0 +1,401 @@
+<!-- src/app/components/message-form/message-form.component.html -->
+<div class="message-form-container">
+  <!-- Header -->
+  <div class="header">
+    <div class="header-content">
+      <h1>✉️ Enviar Mensaje</h1>
+      <p>Crea y envía mensajes a tus contactos de forma profesional</p>
+    </div>
+    <div class="header-actions">
+      <button
+        class="btn btn-outline-primary"
+        (click)="togglePreview()"
+        [disabled]="!message.content">
+        {{ showPreview ? '📝 Editar' : '👁️ Vista previa' }}
+      </button>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div class="loading-section" *ngIf="loading">
+    <div class="spinner"></div>
+    <p>Cargando contactos y categorías...</p>
+  </div>
+
+  <!-- Mensaje de éxito -->
+  <div class="alert alert-success" *ngIf="success">
+    ✅ ¡Mensaje procesado exitosamente!
+    <small>El mensaje se ha {{ message.scheduledTime ? 'programado' : 'enviado' }} correctamente.</small>
+  </div>
+
+  <!-- Mensaje de error -->
+  <div class="alert alert-error" *ngIf="error">
+    ❌ {{ error }}
+  </div>
+
+  <!-- Formulario principal -->
+  <div class="form-container" *ngIf="!loading">
+
+    <!-- Vista previa -->
+    <div class="preview-section" *ngIf="showPreview && message.content">
+      <div class="preview-card">
+        <div class="preview-header">
+          <h3>📱 Vista Previa del Mensaje</h3>
+          <div class="preview-info">
+            <span class="channel-badge">{{ getChannelIcon() }} {{ getChannelName() }}</span>
+            <span class="recipient-badge" *ngIf="selectedRecipient">
+              {{ selectedRecipient.label }}
+            </span>
+          </div>
+        </div>
+
+        <div class="preview-content">
+          <div class="message-preview">
+            <div class="preview-subject" *ngIf="message.subject && (message.channel === 'email' || message.channel === 'both')">
+              <strong>Asunto:</strong> {{ message.subject }}
+            </div>
+            <div class="preview-body">
+              {{ message.content }}
+            </div>
+            <div class="preview-footer">
+              <small>Enviado desde TFG App</small>
+              <span *ngIf="message.scheduledTime" class="scheduled-badge">
+                ⏰ Programado para: {{ message.scheduledTime | date:'short' }}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Formulario -->
+    <form (ngSubmit)="onSend()" *ngIf="!showPreview" class="message-form">
+
+      <!-- Sección 1: Destinatarios -->
+      <div class="form-section">
+        <div class="section-header">
+          <h3>👥 Destinatarios</h3>
+          <span class="section-description">¿A quién quieres enviar el mensaje?</span>
+        </div>
+
+        <div class="recipient-selector">
+          <div class="selector-group">
+            <label class="form-label">Tipo de destinatario</label>
+            <div class="radio-group">
+              <label class="radio-option">
+                <input
+                  type="radio"
+                  [(ngModel)]="message.recipientType"
+                  name="recipientType"
+                  value="individual"
+                  (change)="message.recipientValue = ''; onRecipientChange()">
+                <span class="radio-label">👤 Contacto individual</span>
+              </label>
+              <label class="radio-option">
+                <input
+                  type="radio"
+                  [(ngModel)]="message.recipientType"
+                  name="recipientType"
+                  value="category"
+                  (change)="message.recipientValue = ''; onRecipientChange()">
+                <span class="radio-label">📁 Categoría completa</span>
+              </label>
+              <label class="radio-option">
+                <input
+                  type="radio"
+                  [(ngModel)]="message.recipientType"
+                  name="recipientType"
+                  value="all"
+                  (change)="message.recipientValue = 'all'; onRecipientChange()">
+                <span class="radio-label">🌍 Todos los contactos</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="selector-group" *ngIf="message.recipientType !== 'all'">
+            <label class="form-label">Seleccionar {{ message.recipientType === 'individual' ? 'contacto' : 'categoría' }}</label>
+            <select
+              [(ngModel)]="message.recipientValue"
+              name="recipientValue"
+              class="form-control"
+              (change)="onRecipientChange()"
+              required>
+              <option value="">Selecciona {{ message.recipientType === 'individual' ? 'un contacto' : 'una categoría' }}...</option>
+              <option
+                *ngFor="let option of filteredRecipientOptions"
+                [value]="option.value">
+                {{ option.label }}
+              </option>
+            </select>
+          </div>
+
+          <!-- Información del destinatario seleccionado -->
+          <div class="recipient-info" *ngIf="selectedRecipient">
+            <div class="info-card">
+              <div class="info-header">
+                <span class="info-icon">{{ selectedRecipient.type === 'all' ? '🌍' :
+                  selectedRecipient.type === 'category' ? '📁' : '👤' }}</span>
+                <div class="info-details">
+                  <strong>{{ selectedRecipient.label }}</strong>
+                  <p>{{ selectedRecipient.description }}</p>
+                </div>
+              </div>
+              <div class="info-stats">
+                <div class="stat-item">
+                  <span class="stat-number">{{ selectedRecipient.contactCount || 0 }}</span>
+                  <span class="stat-label">destinatario(s)</span>
+                </div>
+                <div class="stat-item" *ngIf="selectedRecipient.hasEmail">
+                  <span class="stat-icon">📧</span>
+                  <span class="stat-label">Email disponible</span>
+                </div>
+                <div class="stat-item" *ngIf="selectedRecipient.hasPhone">
+                  <span class="stat-icon">📱</span>
+                  <span class="stat-label">SMS disponible</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sección 2: Canal -->
+      <div class="form-section">
+        <div class="section-header">
+          <h3>📡 Canal de envío</h3>
+          <span class="section-description">¿Cómo quieres enviar el mensaje?</span>
+        </div>
+
+        <div class="channel-selector">
+          <div class="channel-options">
+            <label class="channel-option" [class.disabled]="isChannelDisabled('email')">
+              <input
+                type="radio"
+                [(ngModel)]="message.channel"
+                name="channel"
+                value="email"
+                (change)="onChannelChange()"
+                [disabled]="isChannelDisabled('email')">
+              <div class="channel-content">
+                <span class="channel-icon">📧</span>
+                <span class="channel-name">Email</span>
+                <small class="channel-description">Perfecto para mensajes largos con formato</small>
+              </div>
+            </label>
+
+            <label class="channel-option" [class.disabled]="isChannelDisabled('sms')">
+              <input
+                type="radio"
+                [(ngModel)]="message.channel"
+                name="channel"
+                value="sms"
+                (change)="onChannelChange()"
+                [disabled]="isChannelDisabled('sms')">
+              <div class="channel-content">
+                <span class="channel-icon">📱</span>
+                <span class="channel-name">SMS</span>
+                <small class="channel-description">Ideal para mensajes cortos y urgentes</small>
+              </div>
+            </label>
+
+            <label class="channel-option" [class.disabled]="isChannelDisabled('both')">
+              <input
+                type="radio"
+                [(ngModel)]="message.channel"
+                name="channel"
+                value="both"
+                (change)="onChannelChange()"
+                [disabled]="isChannelDisabled('both')">
+              <div class="channel-content">
+                <span class="channel-icon">📧📱</span>
+                <span class="channel-name">Ambos</span>
+                <small class="channel-description">Máximo alcance, envía por email y SMS</small>
+              </div>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sección 3: Contenido -->
+      <div class="form-section">
+        <div class="section-header">
+          <h3>✍️ Contenido del mensaje</h3>
+          <span class="section-description">Escribe tu mensaje</span>
+        </div>
+
+        <!-- Subject (solo para email) -->
+        <div class="form-group" *ngIf="message.channel === 'email' || message.channel === 'both'">
+          <label for="subject" class="form-label required">Asunto del email</label>
+          <input
+            type="text"
+            id="subject"
+            [(ngModel)]="message.subject"
+            name="subject"
+            class="form-control"
+            placeholder="Ej: Información importante, Actualización, etc."
+            required
+            maxlength="100">
+        </div>
+
+        <!-- Content -->
+        <div class="form-group">
+          <label for="content" class="form-label required">Mensaje</label>
+          <textarea
+            id="content"
+            [(ngModel)]="message.content"
+            name="content"
+            class="form-control message-textarea"
+            placeholder="Escribe aquí tu mensaje..."
+            (input)="updateCharacterCount()"
+            required
+            maxlength="1000"
+            rows="6">
+          </textarea>
+          <div class="character-counter">
+            <span [class.warning]="characterCount > 800">{{ characterCount }}/1000 caracteres</span>
+            <span *ngIf="message.channel === 'sms' && characterCount > 160" class="sms-warning">
+              ⚠️ SMS largo (se cobrará como {{ Math.ceil(characterCount / 160) }} mensajes)
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sección 4: Programación (opcional) -->
+      <div class="form-section">
+        <div class="section-header">
+          <h3>⏰ Programación</h3>
+          <span class="section-description">¿Cuándo quieres enviar el mensaje?</span>
+        </div>
+
+        <div class="scheduling-options">
+          <label class="schedule-option">
+            <input
+              type="radio"
+              [checked]="!showScheduling"
+              (change)="showScheduling = false; message.scheduledTime = ''">
+            <span class="option-content">
+              <span class="option-icon">🚀</span>
+              <span class="option-text">Enviar ahora</span>
+            </span>
+          </label>
+
+          <label class="schedule-option">
+            <input
+              type="radio"
+              [checked]="showScheduling"
+              (change)="toggleScheduling()">
+            <span class="option-content">
+              <span class="option-icon">📅</span>
+              <span class="option-text">Programar para más tarde</span>
+            </span>
+          </label>
+        </div>
+
+        <div class="scheduling-details" *ngIf="showScheduling">
+          <div class="form-group">
+            <label for="scheduledTime" class="form-label">Fecha y hora de envío</label>
+            <input
+              type="datetime-local"
+              id="scheduledTime"
+              [(ngModel)]="message.scheduledTime"
+              name="scheduledTime"
+              class="form-control"
+              [min]="getMinScheduleDateTime()"
+              required>
+            <small class="form-help">El mensaje se enviará automáticamente en la fecha seleccionada</small>
+          </div>
+        </div>
+      </div>
+
+      <!-- Resumen y estimaciones -->
+      <div class="summary-section" *ngIf="selectedRecipient">
+        <div class="summary-card">
+          <div class="summary-header">
+            <h4>📊 Resumen del envío</h4>
+          </div>
+          <div class="summary-content">
+            <div class="summary-row">
+              <span class="summary-label">Destinatarios:</span>
+              <span class="summary-value">{{ estimatedRecipients }} contacto(s)</span>
+            </div>
+            <div class="summary-row">
+              <span class="summary-label">Canal:</span>
+              <span class="summary-value">{{ getChannelIcon() }} {{ getChannelName() }}</span>
+            </div>
+            <div class="summary-row">
+              <span class="summary-label">Costo estimado:</span>
+              <span class="summary-value">{{ formatCurrency(estimatedCost) }}</span>
+            </div>
+            <div class="summary-row" *ngIf="message.scheduledTime">
+              <span class="summary-label">Programado para:</span>
+              <span class="summary-value">{{ message.scheduledTime | date:'short' }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Botones de acción -->
+      <div class="form-actions">
+        <button
+          type="button"
+          class="btn btn-outline-secondary"
+          (click)="clearForm()"
+          [disabled]="sending">
+          🗑️ Limpiar Todo
+        </button>
+
+        <!-- ✅ TEMPORAL: Botón de debug -->
+        <button
+          type="button"
+          class="btn btn-outline-warning"
+          (click)="debugCurrentState()"
+          [disabled]="sending">
+          🔍 Debug
+        </button>
+
+        <button
+          type="button"
+          class="btn btn-outline-primary"
+          (click)="togglePreview()"
+          [disabled]="!message.content || sending">
+          👁️ Vista Previa
+        </button>
+
+        <button
+          type="submit"
+          class="btn btn-primary btn-large"
+          [disabled]="!isFormValid() || sending">
+          <span *ngIf="sending" class="spinner-border spinner-border-sm me-2"></span>
+          {{ sending ? 'Enviando...' : (message.scheduledTime ? '📅 Programar' : '🚀 Enviar') }} Mensaje
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Estado vacío cuando no hay contactos -->
+  <div class="empty-state" *ngIf="!loading && contacts.length === 0">
+    <div class="empty-content">
+      <div class="empty-icon">👥</div>
+      <h3>No hay contactos</h3>
+      <p>
+        Necesitas tener contactos registrados para poder enviar mensajes.
+        Crea tu primer contacto para comenzar.
+      </p>
+      <button class="btn btn-primary" routerLink="/contacts/new">
+        ➕ Crear primer contacto
+      </button>
+    </div>
+  </div>
+
+  <!-- Información de ayuda -->
+  <div class="help-section" *ngIf="!loading && contacts.length > 0">
+    <h5>💡 Consejos para enviar mensajes:</h5>
+    <ul>
+      <li><strong>Email:</strong> Ideal para mensajes largos, documentos y comunicación formal</li>
+      <li><strong>SMS:</strong> Perfecto para mensajes urgentes y comunicación inmediata</li>
+      <li><strong>Ambos canales:</strong> Máximo alcance, tu mensaje llegará por email y SMS</li>
+      <li><strong>Programación:</strong> Útil para enviar mensajes en horarios específicos</li>
+      <li><strong>Categorías:</strong> Envía a grupos completos de contactos de una vez</li>
+    </ul>
+  </div>
+</div>

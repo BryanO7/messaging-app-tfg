@@ -1,0 +1,143 @@
+<!-- src/app/components/contact-form/contact-form.component.html -->
+<div class="contact-form-container">
+  <div class="header">
+    <h2>{{ isEditMode ? 'Editar Contacto' : 'Nuevo Contacto' }}</h2>
+    <button class="btn btn-outline-secondary" (click)="cancel()">
+      ← Volver a Contactos
+    </button>
+  </div>
+
+  <!-- Loading spinner -->
+  <div class="text-center" *ngIf="loading">
+    <div class="spinner-border" role="status">
+      <span class="visually-hidden">Cargando...</span>
+    </div>
+  </div>
+
+  <!-- Mensaje de éxito -->
+  <div class="alert alert-success" *ngIf="successMessage">
+    {{ successMessage }}
+    <div class="mt-2">
+      <small>Redirigiendo a la lista de contactos...</small>
+    </div>
+  </div>
+
+  <!-- Mensaje de error -->
+  <div class="alert alert-danger" *ngIf="error">
+    {{ error }}
+  </div>
+
+  <!-- Formulario -->
+  <form (ngSubmit)="onSubmit()" *ngIf="!loading && !successMessage" class="contact-form">
+
+    <!-- Información básica -->
+    <div class="form-section">
+      <h4>📝 Información Básica</h4>
+
+      <div class="form-group">
+        <label for="name" class="form-label required">Nombre completo *</label>
+        <input
+          type="text"
+          id="name"
+          [(ngModel)]="contact.name"
+          name="name"
+          class="form-control"
+          placeholder="Ej: Juan Pérez"
+          required
+          maxlength="100">
+      </div>
+
+      <div class="form-group">
+        <label for="notes" class="form-label">Notas</label>
+        <textarea
+          id="notes"
+          [(ngModel)]="contact.notes"
+          name="notes"
+          class="form-control"
+          rows="3"
+          placeholder="Información adicional sobre el contacto...">
+        </textarea>
+      </div>
+    </div>
+
+    <!-- Canales de comunicación -->
+    <div class="form-section">
+      <h4>📧 Canales de Comunicación</h4>
+      <p class="form-help">Debes proporcionar al menos un email o un teléfono</p>
+
+      <div class="form-group">
+        <label for="email" class="form-label">📧 Email</label>
+        <input
+          type="email"
+          id="email"
+          [(ngModel)]="contact.email"
+          name="email"
+          class="form-control"
+          placeholder="ejemplo@correo.com">
+      </div>
+
+      <div class="form-group">
+        <label for="phone" class="form-label">📱 Teléfono</label>
+        <input
+          type="tel"
+          id="phone"
+          [(ngModel)]="contact.phone"
+          name="phone"
+          class="form-control"
+          placeholder="644123456">
+      </div>
+
+      <div class="form-group">
+        <label for="whatsappId" class="form-label">💬 WhatsApp ID</label>
+        <input
+          type="text"
+          id="whatsappId"
+          [(ngModel)]="contact.whatsappId"
+          name="whatsappId"
+          class="form-control"
+          placeholder="Si es diferente del teléfono">
+        <small class="form-text">Opcional: Solo si el ID de WhatsApp es diferente del número de teléfono</small>
+      </div>
+    </div>
+
+    <!-- Botones de acción -->
+    <div class="form-actions">
+      <button
+        type="button"
+        class="btn btn-outline-secondary"
+        (click)="cancel()"
+        [disabled]="saving">
+        Cancelar
+      </button>
+
+      <button
+        type="button"
+        class="btn btn-outline-warning"
+        (click)="clearForm()"
+        [disabled]="saving"
+        *ngIf="!isEditMode">
+        Limpiar
+      </button>
+
+      <button
+        type="submit"
+        class="btn btn-primary"
+        [disabled]="!isFormValid() || saving">
+        <span *ngIf="saving" class="spinner-border spinner-border-sm me-2"></span>
+        {{ saving ? 'Guardando...' : (isEditMode ? 'Actualizar' : 'Crear') }} Contacto
+      </button>
+    </div>
+  </form>
+
+  <!-- Información de ayuda -->
+  <div class="help-section" *ngIf="!loading && !successMessage">
+    <h5>💡 Consejos:</h5>
+    <ul>
+      <li>El nombre es obligatorio</li>
+      <li>Debes proporcionar al menos un email o teléfono</li>
+      <li>El email debe ser único en el sistema</li>
+      <li>El teléfono debe ser único en el sistema</li>
+      <li>WhatsApp ID solo es necesario si es diferente del teléfono</li>
+    </ul>
+  </div>
+</div>

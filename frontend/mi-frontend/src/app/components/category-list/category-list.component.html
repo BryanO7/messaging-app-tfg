@@ -1,0 +1,180 @@
+<!-- src/app/components/category-list/category-list.component.html -->
+<div class="category-list-container">
+  <div class="header">
+    <h2>Gestión de Categorías</h2>
+    <button class="btn btn-primary" routerLink="/categories/new">
+      + Nueva Categoría
+    </button>
+  </div>
+
+  <!-- Controles de vista -->
+  <div class="view-controls">
+    <div class="view-mode-buttons">
+      <button
+        class="btn btn-mode"
+        [class.active]="viewMode === 'hierarchy'"
+        (click)="changeViewMode('hierarchy')">
+        🌳 Vista Jerárquica
+      </button>
+      <button
+        class="btn btn-mode"
+        [class.active]="viewMode === 'all'"
+        (click)="changeViewMode('all')">
+        📋 Todas las Categorías
+      </button>
+    </div>
+  </div>
+
+  <!-- Barra de búsqueda -->
+  <div class="search-bar">
+    <div class="search-input-group">
+      <input
+        type="text"
+        [(ngModel)]="searchQuery"
+        (keyup.enter)="searchCategories()"
+        placeholder="Buscar categorías..."
+        class="form-control">
+      <button class="btn btn-outline-secondary" (click)="searchCategories()">
+        🔍
+      </button>
+      <button class="btn btn-outline-secondary" (click)="clearSearch()" *ngIf="searchQuery">
+        ✕ Limpiar
+      </button>
+    </div>
+  </div>
+
+  <!-- Mensaje de error -->
+  <div class="alert alert-danger" *ngIf="error">
+    {{ error }}
+    <button class="btn btn-sm btn-outline-danger ms-2" (click)="loadCategories()">
+      Reintentar
+    </button>
+  </div>
+
+  <!-- Loading spinner -->
+  <div class="text-center" *ngIf="loading">
+    <div class="spinner-border" role="status">
+      <span class="visually-hidden">Cargando...</span>
+    </div>
+  </div>
+
+  <!-- Vista Jerárquica (Solo categorías raíz) -->
+  <div class="categories-list" *ngIf="!loading && viewMode === 'hierarchy'">
+    <div
+      class="category-item clickable"
+      *ngFor="let category of rootCategories; trackBy: trackByCategoryId"
+      (click)="editCategory(category.id!)"
+      title="Haz clic para editar">
+
+      <div class="category-main">
+        <div class="category-icon">📁</div>
+        <div class="category-info">
+          <h3 class="category-name">{{ category.name }}</h3>
+          <p class="category-description" *ngIf="category.description">
+            {{ category.description }}
+          </p>
+          <div class="category-meta">
+            <span class="category-id">📋 ID: {{ category.id }}</span>
+            <span class="category-created" *ngIf="category.createdAt">
+              📅 Creada: {{ category.createdAt | date:'shortDate' }}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div class="category-actions" (click)="$event.stopPropagation()">
+        <button
+          class="btn btn-sm btn-outline-info"
+          title="Crear subcategoría">
+          📂 Subcategorías
+        </button>
+        <button
+          class="btn btn-sm btn-outline-danger"
+          (click)="deleteCategory(category.id!)"
+          title="Eliminar categoría">
+          🗑️ Eliminar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Vista Todas las Categorías -->
+  <div class="categories-list" *ngIf="!loading && viewMode === 'all'">
+    <div
+      class="category-item clickable"
+      *ngFor="let category of categories; trackBy: trackByCategoryId"
+      (click)="editCategory(category.id!)"
+      title="Haz clic para editar">
+
+      <div class="category-main">
+        <div class="category-icon">{{ isRootCategory(category) ? '📁' : '📂' }}</div>
+        <div class="category-info">
+          <h3 class="category-name">
+            {{ getFullCategoryName(category) }}
+          </h3>
+          <p class="category-description" *ngIf="category.description">
+            {{ category.description }}
+          </p>
+          <div class="category-meta">
+            <span class="category-id">📋 ID: {{ category.id }}</span>
+            <span class="category-type">
+              {{ isRootCategory(category) ? '🌳 Categoría Raíz' : '📂 Subcategoría' }}
+            </span>
+            <span class="category-created" *ngIf="category.createdAt">
+              📅 {{ category.createdAt | date:'shortDate' }}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div class="category-actions" (click)="$event.stopPropagation()">
+        <button
+          class="btn btn-sm btn-outline-danger"
+          (click)="deleteCategory(category.id!)"
+          title="Eliminar categoría">
+          🗑️ Eliminar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mensaje cuando no hay categorías -->
+  <div class="empty-state" *ngIf="!loading && getDisplayCategories().length === 0">
+    <div class="empty-content">
+      <div class="empty-icon">📁</div>
+      <h3 *ngIf="!searchQuery">No hay categorías</h3>
+      <h3 *ngIf="searchQuery">No se encontraron categorías</h3>
+      <p *ngIf="!searchQuery">
+        Crea tu primera categoría para organizar tus contactos
+      </p>
+      <p *ngIf="searchQuery">
+        No se encontraron categorías con: "<strong>{{ searchQuery }}</strong>"
+      </p>
+      <button
+        class="btn btn-primary"
+        routerLink="/categories/new"
+        *ngIf="!searchQuery">
+        + Crear primera categoría
+      </button>
+      <button
+        class="btn btn-outline-primary"
+        (click)="clearSearch()"
+        *ngIf="searchQuery">
+        Ver todas las categorías
+      </button>
+    </div>
+  </div>
+
+  <!-- Información de ayuda -->
+  <div class="help-section" *ngIf="!loading && getDisplayCategories().length > 0">
+    <div class="help-content">
+      <h4>💡 Cómo usar:</h4>
+      <ul>
+        <li><strong>Haz clic en una categoría</strong> para editarla y gestionar sus contactos</li>
+        <li><strong>Vista Jerárquica:</strong> Muestra solo categorías principales</li>
+        <li><strong>Todas las Categorías:</strong> Muestra categorías y subcategorías</li>
+        <li><strong>Buscar:</strong> Encuentra categorías por nombre</li>
+      </ul>
+    </div>
+  </div>
+</div>

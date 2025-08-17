@@ -1,0 +1,258 @@
+<!-- src/app/components/category-form/category-form.component.html -->
+<div class="category-form-container">
+  <div class="header">
+    <div class="header-text">
+      <h2>{{ isEditMode ? 'Editar Categoría' : 'Nueva Categoría' }}</h2>
+      <h3 *ngIf="category.name">{{ category.name }}</h3>
+      <p *ngIf="getSelectedContactsCount() > 0" class="contact-count">
+        {{ getSelectedContactsCount() }} contacto(s) seleccionado(s)
+      </p>
+    </div>
+    <button class="btn btn-outline-secondary" (click)="goBack()">
+      ← Volver a Categorías
+    </button>
+  </div>
+
+  <!-- Loading spinner -->
+  <div class="text-center" *ngIf="loading">
+    <div class="spinner-border" role="status">
+      <span class="visually-hidden">Cargando...</span>
+    </div>
+  </div>
+
+  <!-- Mensaje de éxito -->
+  <div class="alert alert-success" *ngIf="successMessage">
+    {{ successMessage }}
+    <div class="mt-2">
+      <small>Redirigiendo a la lista de categorías...</small>
+    </div>
+  </div>
+
+  <!-- Mensaje de error -->
+  <div class="alert alert-danger" *ngIf="error">
+    {{ error }}
+  </div>
+
+  <!-- Formulario principal -->
+  <form (ngSubmit)="onSubmit()" *ngIf="!loading && !successMessage" class="category-form">
+
+    <!-- Información básica de la categoría -->
+    <div class="form-section">
+      <h4>📝 Información de la Categoría</h4>
+
+      <div class="form-group">
+        <label for="name" class="form-label required">Nombre de la categoría *</label>
+        <input
+          type="text"
+          id="name"
+          [(ngModel)]="category.name"
+          name="name"
+          class="form-control"
+          placeholder="Ej: Equipo de Marketing, Clientes VIP, etc."
+          required
+          maxlength="100">
+      </div>
+
+      <div class="form-group">
+        <label for="description" class="form-label">Descripción</label>
+        <textarea
+          id="description"
+          [(ngModel)]="category.description"
+          name="description"
+          class="form-control"
+          rows="3"
+          placeholder="Describe el propósito de esta categoría...">
+        </textarea>
+      </div>
+    </div>
+
+    <!-- ✅ NUEVA SECCIÓN: Selección de contactos -->
+    <div class="form-section">
+      <div class="section-header">
+        <h4>👥 Contactos para esta categoría</h4>
+        <div class="section-actions">
+          <span class="selected-count">{{ getSelectedContactsCount() }} seleccionados</span>
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-primary"
+            (click)="selectAllVisible()"
+            [disabled]="filteredContacts.length === 0">
+            ✓ Todos
+          </button>
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-secondary"
+            (click)="deselectAllVisible()"
+            [disabled]="getSelectedContactsCount() === 0">
+            ✗ Ninguno
+          </button>
+        </div>
+      </div>
+
+      <!-- Búsqueda de contactos -->
+      <div class="search-section">
+        <div class="search-input-group">
+          <input
+            type="text"
+            [(ngModel)]="searchQuery"
+            (keyup)="searchContacts()"
+            placeholder="Buscar contactos por nombre, email o teléfono..."
+            name="searchQuery"
+            class="form-control">
+          <button
+            type="button"
+            class="btn btn-outline-secondary"
+            (click)="searchContacts()">
+            🔍
+          </button>
+          <button
+            type="button"
+            class="btn btn-outline-secondary"
+            (click)="clearSearch()"
+            *ngIf="searchQuery">
+            ✕
+          </button>
+        </div>
+      </div>
+
+      <!-- Lista de contactos con checkboxes -->
+      <div class="contacts-selection" *ngIf="filteredContacts.length > 0">
+        <div class="contact-checkbox-list">
+          <div
+            class="contact-checkbox-item"
+            *ngFor="let contact of filteredContacts; trackBy: trackByContactId"
+            [class.selected]="isContactSelected(contact.id!)">
+
+            <label class="contact-checkbox-label">
+              <input
+                type="checkbox"
+                [checked]="isContactSelected(contact.id!)"
+                (change)="toggleContactSelection(contact.id!)"
+                class="contact-checkbox">
+
+              <div class="contact-info">
+                <div class="contact-main">
+                  <span class="contact-name">{{ contact.name }}</span>
+                  <div class="contact-channels">
+                    <span
+                      class="channel-badge"
+                      *ngFor="let channel of getContactChannels(contact)">
+                      {{ channel }}
+                    </span>
+                  </div>
+                </div>
+
+                <div class="contact-details">
+                  <span class="contact-email" *ngIf="contact.email">📧 {{ contact.email }}</span>
+                  <span class="contact-phone" *ngIf="contact.phone">📱 {{ contact.phone }}</span>
+                </div>
+              </div>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Estado vacío -->
+      <div class="empty-state" *ngIf="filteredContacts.length === 0">
+        <div class="empty-content">
+          <div class="empty-icon">👥</div>
+          <h3 *ngIf="allContacts.length === 0">No hay contactos</h3>
+          <h3 *ngIf="allContacts.length > 0 && searchQuery">No se encontraron contactos</h3>
+          <p *ngIf="allContacts.length === 0">
+            Primero debes crear contactos para poder asignarlos a categorías
+          </p>
+          <p *ngIf="allContacts.length > 0 && searchQuery">
+            No hay contactos que coincidan con: "<strong>{{ searchQuery }}</strong>"
+          </p>
+          <button
+            type="button"
+            class="btn btn-primary"
+            routerLink="/contacts/new"
+            *ngIf="allContacts.length === 0">
+            ➕ Crear primer contacto
+          </button>
+          <button
+            type="button"
+            class="btn btn-outline-primary"
+            (click)="clearSearch()"
+            *ngIf="allContacts.length > 0 && searchQuery">
+            🔄 Ver todos los contactos
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Vista previa de la categoría -->
+    <div class="form-section" *ngIf="category.name || getSelectedContactsCount() > 0">
+      <h4>👁️ Vista Previa</h4>
+      <div class="category-preview">
+        <div class="preview-header">
+          <div class="preview-icon">📁</div>
+          <div class="preview-info">
+            <span class="preview-name">{{ category.name || 'Nueva Categoría' }}</span>
+            <span class="preview-description" *ngIf="category.description">
+              {{ category.description }}
+            </span>
+          </div>
+        </div>
+
+        <div class="preview-stats">
+          <div class="stat-item">
+            <span class="stat-number">{{ getSelectedContactsCount() }}</span>
+            <span class="stat-label">contactos</span>
+          </div>
+          <div class="stat-item" *ngIf="getSelectedContactsCount() > 0">
+            <span class="stat-number">{{ getSelectedContactsWithEmail() }}</span>
+            <span class="stat-label">con email</span>
+          </div>
+          <div class="stat-item" *ngIf="getSelectedContactsCount() > 0">
+            <span class="stat-number">{{ getSelectedContactsWithPhone() }}</span>
+            <span class="stat-label">con teléfono</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Botones de acción -->
+    <div class="form-actions">
+      <button
+        type="button"
+        class="btn btn-outline-secondary"
+        (click)="cancel()"
+        [disabled]="saving">
+        Cancelar
+      </button>
+
+      <button
+        type="button"
+        class="btn btn-outline-warning"
+        (click)="clearForm()"
+        [disabled]="saving"
+        *ngIf="!isEditMode">
+        Limpiar Todo
+      </button>
+
+      <button
+        type="submit"
+        class="btn btn-primary"
+        [disabled]="!isFormValid() || saving">
+        <span *ngIf="saving" class="spinner-border spinner-border-sm me-2"></span>
+        {{ saving ? 'Guardando...' : (isEditMode ? 'Actualizar' : 'Crear') }} Categoría
+        <span *ngIf="!isEditMode && getSelectedContactsCount() > 0">
+          con {{ getSelectedContactsCount() }} contactos
+        </span>
+      </button>
+    </div>
+  </form>
+
+  <!-- Información de ayuda -->
+  <div class="help-section" *ngIf="!loading && !successMessage">
+    <h5>💡 Consejos:</h5>
+    <ul>
+      <li><strong>Al crear:</strong> Selecciona los contactos que quieres incluir y se asignarán automáticamente</li>
+      <li><strong>Al editar:</strong> Puedes marcar/desmarcar contactos para agregarlos o quitarlos inmediatamente</li>
+      <li><strong>Búsqueda:</strong> Usa la búsqueda para encontrar contactos específicos rápidamente</li>
+      <li><strong>Selección múltiple:</strong> Usa "Todos" o "Ninguno" para seleccionar rápidamente</li>
+    </ul>
+  </div>
+</div>
