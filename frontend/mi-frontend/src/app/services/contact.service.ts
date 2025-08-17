@@ -58,4 +58,20 @@ export class ContactService {
     const params = new HttpParams().set('query', query);
     return this.http.get<Contact[]>(`${this.apiUrl}/search`, { params });
   }
+  // === GESTIÓN DE CATEGORÍAS ===
+
+  // Obtener contactos por categoría
+  getContactsByCategory(categoryId: number): Observable<Contact[]> {
+    return this.http.get<Contact[]>(`${this.apiUrl}/category/${categoryId}`);
+  }
+
+  // Agregar contacto a categoría
+  addContactToCategory(contactId: number, categoryId: number): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/${contactId}/categories/${categoryId}`, {});
+  }
+
+  // Remover contacto de categoría
+  removeContactFromCategory(contactId: number, categoryId: number): Observable<any> {
+    return this.http.delete<any>(`${this.apiUrl}/${contactId}/categories/${categoryId}`);
+  }
 }

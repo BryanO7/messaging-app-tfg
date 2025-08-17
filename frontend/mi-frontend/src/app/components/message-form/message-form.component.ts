@@ -2,22 +2,11 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterModule } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
+import { RouterModule, Router, ActivatedRoute } from '@angular/router';
 import { Observable, forkJoin } from 'rxjs';
 import { ContactService, Contact } from '../../services/contact.service';
 import { CategoryService, Category } from '../../services/category.service';
 import { MessageService, MessageRequest } from '../../services/message.service';
-
-interface RecipientOption {
-  type: 'individual' | 'category' | 'all';
-  value: string;
-  label: string;
-  description: string;
-  contactCount?: number;
-  hasEmail?: boolean;
-  hasPhone?: boolean;
-}
 
 @Component({
   selector: 'app-message-form',
@@ -29,54 +18,55 @@ interface RecipientOption {
 export class MessageFormComponent implements OnInit {
   // Datos del formulario
   message: MessageRequest = {
-    recipientType: 'individual',
+    recipientType: '',
     recipientValue: '',
-    channel: 'email',
+    channel: '',
     subject: '',
     content: '',
     scheduledTime: ''
   };
 
-  // Opciones disponibles
+  // Modo de envío
+  sendingMode: 'now' | 'scheduled' = 'now';
+
+  // Datos de la aplicación
   contacts: Contact[] = [];
   categories: Category[] = [];
-  recipientOptions: RecipientOption[] = [];
-  selectedRecipient: RecipientOption | null = null;
 
-  // Datos filtrados para el template
-  filteredRecipientOptions: RecipientOption[] = [];
+  // Para selección múltiple
+  selectedContacts: Contact[] = [];
+  showContactsDropdown = false;
+  contactSearchQuery = '';
+  filteredContacts: Contact[] = [];
 
-  // Estados
+  // Estados del formulario
   loading = false;
   sending = false;
   success = false;
   error = '';
+  successMessage = '';
 
   // UI
   showPreview = false;
-  showScheduling = false;
   characterCount = 0;
   estimatedCost = 0;
-  estimatedRecipients = 0;
-
-  // ✅ NUEVO: Referencia a Math para el template
-  Math = Math;
 
   constructor(
     private contactService: ContactService,
     private categoryService: CategoryService,
-    private messageService: MessageService
+    private messageService: MessageService,
+    private router: Router,
+    private route: ActivatedRoute
   ) {}
 
   ngOnInit(): void {
     this.loadData();
-    this.updateCharacterCount();
+    this.checkQueryParams();
   }
 
   loadData(): void {
     this.loading = true;
 
-    // ✅ CORREGIDO: Usar forkJoin en lugar de Promise.all con toPromise()
     forkJoin({
       contacts: this.contactService.getAllContacts(),
       categories: this.categoryService.getAllCategories()
@@ -84,12 +74,9 @@ export class MessageFormComponent implements OnInit {
       next: (result) => {
         this.contacts = result.contacts || [];
         this.categories = result.categories || [];
-
-        // Pasar contactos al MessageService para caché
-        this.messageService.setContactCache(this.contacts);
-
-        this.setupRecipientOptions();
+        this.filteredContacts = [...this.contacts];
         this.loading = false;
+        console.log('📊 Datos cargados:', { contacts: this.contacts.length, categories: this.categories.length });
       },
       error: (error) => {
         console.error('Error cargando datos:', error);
@@ -99,382 +86,304 @@ export class MessageFormComponent implements OnInit {
     });
   }
 
-  setupRecipientOptions(): void {
-    this.recipientOptions = [];
+  checkQueryParams(): void {
+    // Pre-seleccionar basado en query params de la URL
+    const recipientType = this.route.snapshot.queryParams['recipientType'];
+    const recipientValue = this.route.snapshot.queryParams['recipientValue'];
 
-    // Opción: Todos los contactos
-    if (this.contacts.length > 0) {
-      const emailCount = this.contacts.filter(c => c.email).length;
-      const phoneCount = this.contacts.filter(c => c.phone).length;
-
-      this.recipientOptions.push({
-        type: 'all',
-        value: 'all',
-        label: '🌍 Todos los contactos',
-        description: `${this.contacts.length} contactos total`,
-        contactCount: this.contacts.length,
-        hasEmail: emailCount > 0,
-        hasPhone: phoneCount > 0
-      });
+    if (recipientType && recipientValue) {
+      this.message.recipientType = recipientType;
+      this.message.recipientValue = recipientValue;
     }
-
-    // Categorías
-    this.categories.forEach(category => {
-      this.recipientOptions.push({
-        type: 'category',
-        value: category.id!.toString(),
-        label: `📁 ${category.name}`,
-        description: category.description || 'Sin descripción',
-        contactCount: 0, // Se actualizará cuando se seleccione
-        hasEmail: true, // Asumimos que sí por ahora
-        hasPhone: true
-      });
-    });
-
-    // ✅ CORREGIDO: Contactos individuales con información detallada
-    this.contacts.forEach(contact => {
-      this.recipientOptions.push({
-        type: 'individual',
-        value: contact.id!.toString(),
-        label: `👤 ${contact.name}`,
-        description: this.getContactDescription(contact),
-        contactCount: 1,
-        hasEmail: !!contact.email,
-        hasPhone: !!contact.phone
-      });
-    });
-
-    // ✅ NUEVO: Debug logging
-    console.log('📋 Opciones de destinatarios configuradas:', this.recipientOptions);
-    console.log('👥 Contactos cargados:', this.contacts);
   }
 
-  getContactDescription(contact: Contact): string {
-    const channels = [];
-    if (contact.email) channels.push(`📧 ${contact.email}`);
-    if (contact.phone) channels.push(`📱 ${contact.phone}`);
-    if (contact.whatsappId) channels.push(`💬 ${contact.whatsappId}`);
-    return channels.length > 0 ? channels.join(' • ') : 'Sin canales de contacto';
+  // === EVENTOS DE CAMBIO ===
+
+  onRecipientTypeChange(): void {
+    console.log('🔄 Tipo de destinatario cambiado:', this.message.recipientType);
+
+    // Limpiar selecciones anteriores
+    this.message.recipientValue = '';
+    this.selectedContacts = [];
+    this.showContactsDropdown = false;
+
+    // Actualizar disponibilidad de canales
+    this.updateChannelAvailability();
   }
 
   onRecipientChange(): void {
-    console.log('🔄 Cambio de destinatario:', {
-      type: this.message.recipientType,
-      value: this.message.recipientValue
-    });
-
-    this.selectedRecipient = this.recipientOptions.find(
-      opt => opt.type === this.message.recipientType && opt.value === this.message.recipientValue
-    ) || null;
-
-    console.log('✅ Destinatario seleccionado:', this.selectedRecipient);
-
-    // ✅ NUEVO: Si es contacto individual, obtener y mostrar información detallada
-    if (this.message.recipientType === 'individual' && this.message.recipientValue) {
-      const contact = this.contacts.find(c => c.id === parseInt(this.message.recipientValue));
-      console.log('👤 Contacto encontrado:', contact);
-
-      if (contact && this.selectedRecipient) {
-        this.selectedRecipient.hasEmail = !!contact.email;
-        this.selectedRecipient.hasPhone = !!contact.phone;
-        this.selectedRecipient.description = this.getContactDescription(contact);
-      }
-    }
-
-    // Actualizar opciones filtradas
-    this.updateFilteredOptions();
-
-    this.validateChannelCompatibility();
-    this.updateEstimates();
-  }
-
-  // ✅ NUEVO: Método para filtrar opciones
-  updateFilteredOptions(): void {
-    this.filteredRecipientOptions = this.recipientOptions.filter(
-      opt => opt.type === this.message.recipientType
-    );
+    console.log('🔄 Destinatario cambiado:', this.message.recipientValue);
+    this.updateChannelAvailability();
+    this.calculateCost();
   }
 
   onChannelChange(): void {
-    this.validateChannelCompatibility();
-    this.updateEstimates();
-    this.updateSubjectRequirement();
+    console.log('🔄 Canal cambiado:', this.message.channel);
+    this.calculateCost();
   }
 
-  updateSubjectRequirement(): void {
-    // Si es solo SMS, limpiar el subject
-    if (this.message.channel === 'sms') {
-      this.message.subject = '';
-    }
-    // Si es email o both y no tiene subject, poner uno por defecto
-    else if ((this.message.channel === 'email' || this.message.channel === 'both') && !this.message.subject) {
-      this.message.subject = 'Mensaje desde TFG App';
-    }
-  }
-
-  validateChannelCompatibility(): void {
-    if (!this.selectedRecipient) return;
-
-    // Verificar compatibilidad del canal con el destinatario
-    if (this.message.channel === 'email' && !this.selectedRecipient.hasEmail) {
-      this.error = 'El destinatario seleccionado no tiene direcciones de email disponibles';
-    } else if (this.message.channel === 'sms' && !this.selectedRecipient.hasPhone) {
-      this.error = 'El destinatario seleccionado no tiene números de teléfono disponibles';
-    } else {
-      this.error = '';
-    }
-  }
-
-  updateCharacterCount(): void {
-    this.characterCount = this.message.content.length;
-    this.updateEstimates();
-  }
-
-  updateEstimates(): void {
-    if (!this.selectedRecipient) {
-      this.estimatedRecipients = 0;
-      this.estimatedCost = 0;
-      return;
-    }
-
-    this.estimatedRecipients = this.selectedRecipient.contactCount || 0;
-    this.estimatedCost = this.messageService.estimateMessageCost(this.message, this.estimatedRecipients);
-  }
-
-  togglePreview(): void {
-    this.showPreview = !this.showPreview;
-  }
-
-  toggleScheduling(): void {
-    this.showScheduling = !this.showScheduling;
-    if (!this.showScheduling) {
+  onSendingModeChange(): void {
+    console.log('🔄 Modo de envío cambiado:', this.sendingMode);
+    if (this.sendingMode === 'now') {
       this.message.scheduledTime = '';
     }
   }
 
+  // === SELECCIÓN MÚLTIPLE DE CONTACTOS ===
+
+  toggleContactsDropdown(): void {
+    this.showContactsDropdown = !this.showContactsDropdown;
+    if (this.showContactsDropdown) {
+      this.filterContacts();
+    }
+  }
+
+  filterContacts(): void {
+    if (!this.contactSearchQuery) {
+      this.filteredContacts = [...this.contacts];
+    } else {
+      const query = this.contactSearchQuery.toLowerCase();
+      this.filteredContacts = this.contacts.filter(contact =>
+        contact.name.toLowerCase().includes(query) ||
+        (contact.email && contact.email.toLowerCase().includes(query)) ||
+        (contact.phone && contact.phone.includes(query))
+      );
+    }
+  }
+
+  isContactSelected(contactId: number): boolean {
+    return this.selectedContacts.some(c => c.id === contactId);
+  }
+
+  toggleContactSelection(contactId: number): void {
+    const contact = this.contacts.find(c => c.id === contactId);
+    if (!contact) return;
+
+    const index = this.selectedContacts.findIndex(c => c.id === contactId);
+    if (index > -1) {
+      this.selectedContacts.splice(index, 1);
+    } else {
+      this.selectedContacts.push(contact);
+    }
+
+    console.log('👥 Contactos seleccionados:', this.selectedContacts.length);
+    this.updateChannelAvailability();
+    this.calculateCost();
+  }
+
+  removeContactSelection(contactId: number): void {
+    const index = this.selectedContacts.findIndex(c => c.id === contactId);
+    if (index > -1) {
+      this.selectedContacts.splice(index, 1);
+      this.updateChannelAvailability();
+      this.calculateCost();
+    }
+  }
+
+  // === VALIDACIONES Y DISPONIBILIDAD ===
+
+  updateChannelAvailability(): void {
+    // Lógica para determinar qué canales están disponibles
+    // basado en los destinatarios seleccionados
+  }
+
+  canUseEmail(): boolean {
+    if (this.message.recipientType === 'individual') {
+      const contact = this.contacts.find(c => c.id === parseInt(this.message.recipientValue));
+      return !!contact?.email;
+    }
+    if (this.message.recipientType === 'multiple') {
+      return this.selectedContacts.some(c => c.email);
+    }
+    return true; // Para categorías, asumimos que hay emails
+  }
+
+  canUseSms(): boolean {
+    if (this.message.recipientType === 'individual') {
+      const contact = this.contacts.find(c => c.id === parseInt(this.message.recipientValue));
+      return !!contact?.phone;
+    }
+    if (this.message.recipientType === 'multiple') {
+      return this.selectedContacts.some(c => c.phone);
+    }
+    return true; // Para categorías, asumimos que hay teléfonos
+  }
+
+  canUseBoth(): boolean {
+    return this.canUseEmail() && this.canUseSms();
+  }
+
+  showSubjectField(): boolean {
+    return this.message.channel === 'email' || this.message.channel === 'both';
+  }
+
   isFormValid(): boolean {
-    if (!this.message.recipientValue) return false;
+    // Verificar tipo de destinatario
+    if (!this.message.recipientType) return false;
+
+    // Verificar destinatario específico
+    if (this.message.recipientType === 'individual' && !this.message.recipientValue) return false;
+    if (this.message.recipientType === 'category' && !this.message.recipientValue) return false;
+    if (this.message.recipientType === 'multiple' && this.selectedContacts.length === 0) return false;
+
+    // Verificar canal
+    if (!this.message.channel) return false;
+
+    // Verificar contenido
     if (!this.message.content.trim()) return false;
 
-    // Si es email, debe tener subject
-    if ((this.message.channel === 'email' || this.message.channel === 'both') &&
-      !this.message.subject?.trim()) {
-      return false;
-    }
+    // Verificar asunto si es email
+    if (this.showSubjectField() && !this.message.subject?.trim()) return false;
 
-    // Si está programado, debe tener fecha futura
-    if (this.message.scheduledTime) {
-      const scheduledDate = new Date(this.message.scheduledTime);
-      const now = new Date();
-      if (scheduledDate <= now) {
-        return false;
-      }
-    }
+    // Verificar fecha programada si es necesaria
+    if (this.sendingMode === 'scheduled' && !this.message.scheduledTime) return false;
 
     return true;
   }
 
+  // === CÁLCULOS Y ESTIMACIONES ===
+
+  updateCharacterCount(): void {
+    this.characterCount = this.message.content.length;
+    this.calculateCost();
+  }
+
+  getEstimatedRecipients(): number {
+    if (this.message.recipientType === 'individual') {
+      return this.message.recipientValue ? 1 : 0;
+    }
+    if (this.message.recipientType === 'multiple') {
+      return this.selectedContacts.length;
+    }
+    if (this.message.recipientType === 'category') {
+      // TODO: Obtener número real de contactos en la categoría
+      return 1; // Placeholder
+    }
+    return 0;
+  }
+
+  getEmailCount(): number {
+    if (this.message.recipientType === 'individual') {
+      const contact = this.contacts.find(c => c.id === parseInt(this.message.recipientValue));
+      return contact?.email ? 1 : 0;
+    }
+    if (this.message.recipientType === 'multiple') {
+      return this.selectedContacts.filter(c => c.email).length;
+    }
+    return this.getEstimatedRecipients(); // Para categorías
+  }
+
+  getSmsCount(): number {
+    if (this.message.recipientType === 'individual') {
+      const contact = this.contacts.find(c => c.id === parseInt(this.message.recipientValue));
+      return contact?.phone ? 1 : 0;
+    }
+    if (this.message.recipientType === 'multiple') {
+      return this.selectedContacts.filter(c => c.phone).length;
+    }
+    return this.getEstimatedRecipients(); // Para categorías
+  }
+
+  calculateCost(): void {
+    const recipients = this.getEstimatedRecipients();
+    this.estimatedCost = this.messageService.estimateMessageCost(this.message, recipients);
+  }
+
+  getMaxCharacters(): number {
+    return this.message.channel === 'sms' ? 160 : 2000;
+  }
+
+  // === ENVÍO DEL MENSAJE ===
+
   onSend(): void {
     if (!this.isFormValid()) {
-      this.error = 'Por favor completa todos los campos obligatorios y verifica la información';
-      return;
-    }
-
-    if (!this.messageService.isMessageValid(this.message)) {
-      this.error = 'El mensaje no es válido. Verifica el contenido y destinatario';
+      this.error = 'Por favor completa todos los campos requeridos';
       return;
     }
 
     this.sending = true;
     this.error = '';
 
-    // ✅ NUEVO: Usar diferentes métodos según el tipo de destinatario
-    let sendOperation: Observable<any>;
+    // Preparar datos según el tipo de destinatario
+    const messageData = this.prepareMessageData();
 
-    switch (this.message.recipientType) {
-      case 'individual':
-        sendOperation = this.sendToIndividual();
-        break;
-      case 'category':
-        sendOperation = this.sendToCategory();
-        break;
-      case 'all':
-        sendOperation = this.sendToAll();
-        break;
-      default:
-        this.error = 'Tipo de destinatario no válido';
-        this.sending = false;
-        return;
-    }
+    console.log('🚀 Enviando mensaje:', messageData);
 
-    sendOperation.subscribe({
+    this.messageService.sendMessage(messageData).subscribe({
       next: (response) => {
+        console.log('✅ Mensaje enviado exitosamente:', response);
         this.sending = false;
-        if (response.success !== false) {
-          this.success = true;
-          this.showSuccessMessage(response);
-          this.clearForm();
-        } else {
-          this.error = response.message || 'Error al enviar el mensaje';
-        }
+        this.success = true;
+        this.successMessage = this.sendingMode === 'scheduled'
+          ? 'Mensaje programado exitosamente'
+          : 'Mensaje enviado exitosamente';
+
+        // Limpiar formulario después de 3 segundos
+        setTimeout(() => {
+          this.resetForm();
+        }, 3000);
       },
       error: (error) => {
-        console.error('Error enviando mensaje:', error);
+        console.error('❌ Error enviando mensaje:', error);
         this.sending = false;
-        this.error = error.error?.message || 'Error al enviar el mensaje. Intenta de nuevo.';
+        this.error = error.error?.message || 'Error al enviar el mensaje';
       }
     });
   }
 
-  // ✅ NUEVOS: Métodos específicos para cada tipo de envío
-  private sendToIndividual(): Observable<any> {
-    const contactId = parseInt(this.message.recipientValue);
-    const contact = this.contacts.find(c => c.id === contactId);
+  private prepareMessageData(): MessageRequest {
+    const data: MessageRequest = {
+      recipientType: this.message.recipientType as any,
+      recipientValue: this.message.recipientValue,
+      channel: this.message.channel as any,
+      subject: this.message.subject,
+      content: this.message.content,
+      scheduledTime: this.sendingMode === 'scheduled' ? this.message.scheduledTime : undefined
+    };
 
-    console.log('📤 Enviando a contacto individual:', {
-      contactId,
-      contact,
-      channel: this.message.channel,
-      scheduled: !!this.message.scheduledTime
-    });
-
-    if (!contact) {
-      throw new Error('Contacto no encontrado');
+    // Para múltiples contactos, enviar IDs
+    if (this.message.recipientType === 'multiple') {
+      data.recipientValue = this.selectedContacts.map(c => c.id).join(',');
     }
 
-    const apiUrl = 'http://localhost:8080/api'; // ✅ CORREGIDO: URL directa
-
-    if (this.message.channel === 'email') {
-      if (!contact.email) {
-        throw new Error('El contacto no tiene email');
-      }
-      if (this.message.scheduledTime) {
-        // Programar email
-        const scheduleData = {
-          to: contact.email,
-          subject: this.message.subject || 'Mensaje desde TFG App',
-          content: this.message.content,
-          scheduledTime: this.message.scheduledTime
-        };
-        console.log('📅 Datos para programación:', scheduleData);
-         // hello
-        return this.http.post(`${apiUrl}/messaging/schedule`, scheduleData);
-      } else {
-        // Enviar email inmediato
-        return this.messageService.sendEmail(contact.email, this.message.subject || 'Mensaje desde TFG App', this.message.content);
-      }
-    } else if (this.message.channel === 'sms') {
-      if (!contact.phone) {
-        throw new Error('El contacto no tiene teléfono');
-      }
-      // TODO: Implementar SMS programado si es necesario
-      return this.messageService.sendSms(contact.phone, this.message.content);
-    } else {
-      throw new Error('Canal no soportado para contactos individuales');
-    }
+    return data;
   }
 
-  private sendToCategory(): Observable<any> {
-    const categoryId = parseInt(this.message.recipientValue);
-    return this.messageService.sendToCategory(
-      categoryId,
-      this.message.channel,
-      this.message.subject || 'Mensaje desde TFG App',
-      this.message.content
-    );
-  }
-
-  private sendToAll(): Observable<any> {
-    // TODO: Implementar envío a todos los contactos
-    throw new Error('Envío a todos los contactos no implementado aún');
-  }
-
-  // ✅ NUEVO: Inyectar HttpClient para llamadas directas
-
-  showSuccessMessage(response: any): void {
-    let message = this.message.scheduledTime ?
-      '⏰ Mensaje programado exitosamente' :
-      '✅ Mensaje enviado exitosamente';
-
-    if (response.totalRecipients) {
-      message += ` a ${response.totalRecipients} destinatario(s)`;
-    }
-
-    if (response.messageId) {
-      message += ` (ID: ${response.messageId})`;
-    }
-
-    // Mostrar mensaje de éxito por 5 segundos
-    setTimeout(() => {
-      this.success = false;
-    }, 5000);
-  }
-
-  clearForm(): void {
+  resetForm(): void {
     this.message = {
-      recipientType: 'individual',
+      recipientType: '',
       recipientValue: '',
-      channel: 'email',
+      channel: '',
       subject: '',
       content: '',
       scheduledTime: ''
     };
-    this.selectedRecipient = null;
+    this.sendingMode = 'now';
+    this.selectedContacts = [];
+    this.showContactsDropdown = false;
+    this.contactSearchQuery = '';
+    this.showPreview = false;
     this.characterCount = 0;
     this.estimatedCost = 0;
-    this.estimatedRecipients = 0;
-    this.showPreview = false;
-    this.showScheduling = false;
+    this.success = false;
     this.error = '';
   }
 
-  // Métodos de utilidad para el template
-  getChannelIcon(): string {
-    return this.messageService.getChannelIcon(this.message.channel);
-  }
-
-  getChannelName(): string {
-    return this.messageService.getChannelName(this.message.channel);
-  }
-
-  getRecipientSummary(): string {
-    if (!this.selectedRecipient) return '';
-
-    return `${this.selectedRecipient.label} - ${this.selectedRecipient.description}`;
-  }
+  // === UTILIDADES ===
 
   getMinScheduleDateTime(): string {
-    // Mínimo 5 minutos en el futuro
     const now = new Date();
     now.setMinutes(now.getMinutes() + 5);
-    return now.toISOString().slice(0, 16); // Format: YYYY-MM-DDTHH:mm
+    return now.toISOString().slice(0, 16);
   }
 
-  // ✅ NUEVOS: Métodos para validaciones de canales
-  isChannelDisabled(channel: string): boolean {
-    if (!this.selectedRecipient) return false;
-
-    switch (channel) {
-      case 'email':
-        return !this.selectedRecipient.hasEmail;
-      case 'sms':
-        return !this.selectedRecipient.hasPhone;
-      case 'both':
-        return !this.selectedRecipient.hasEmail || !this.selectedRecipient.hasPhone;
-      default:
-        return false;
-    }
-  }
-
-  // ✅ NUEVO: Método de debug para verificar estado
-  debugCurrentState(): void {
-    console.log('🔍 ESTADO ACTUAL DEL FORMULARIO:', {
-      message: this.message,
-      selectedRecipient: this.selectedRecipient,
-      contacts: this.contacts,
-      recipientOptions: this.recipientOptions.filter(opt => opt.type === this.message.recipientType),
-      isFormValid: this.isFormValid()
-    });
+  getChannelName(channel: string): string {
+    const names = {
+      email: '📧 Email',
+      sms: '📱 SMS',
+      both: '📧📱 Email + SMS'
+    };
+    return names[channel as keyof typeof names] || channel;
   }
 
   formatCurrency(amount: number): string {

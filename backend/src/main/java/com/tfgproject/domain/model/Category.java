@@ -8,6 +8,7 @@ import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
 import jakarta.persistence.*;
+import com.fasterxml.jackson.annotation.JsonIgnore; // ✅ AGREGAR ESTA IMPORTACIÓN
 import java.time.LocalDateTime;
 import java.util.Set;
 import java.util.HashSet;
@@ -18,12 +19,12 @@ import java.util.HashSet;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@EqualsAndHashCode(onlyExplicitlyIncluded = true) // ✅ Solo incluir ID para equals/hashCode
-@ToString(exclude = {"contacts", "subcategories"}) // ✅ Excluir relaciones de toString
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
+@ToString(exclude = {"contacts", "subcategories"})
 public class Category {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @EqualsAndHashCode.Include // ✅ Solo usar ID para equals/hashCode
+    @EqualsAndHashCode.Include
     private Long id;
 
     @Column(nullable = false)
@@ -33,10 +34,12 @@ public class Category {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parent_id")
+    @JsonIgnore // ✅ AGREGAR PARA EVITAR CICLO PARENT -> SUBCATEGORIES -> PARENT
     private Category parent;
 
     @OneToMany(mappedBy = "parent", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @Builder.Default
+    @JsonIgnore // ✅ AGREGAR PARA EVITAR CICLO SUBCATEGORIES -> PARENT -> SUBCATEGORIES
     private Set<Category> subcategories = new HashSet<>();
 
     @ManyToMany(fetch = FetchType.LAZY, cascade = {CascadeType.PERSIST, CascadeType.MERGE})
@@ -46,6 +49,7 @@ public class Category {
             inverseJoinColumns = @JoinColumn(name = "contact_id")
     )
     @Builder.Default
+    @JsonIgnore // ✅ AGREGAR PARA EVITAR CICLO CONTACT -> CATEGORIES -> CONTACT
     private Set<Contact> contacts = new HashSet<>();
 
     private LocalDateTime createdAt;

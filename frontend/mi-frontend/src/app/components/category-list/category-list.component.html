@@ -63,8 +63,8 @@
     <div
       class="category-item clickable"
       *ngFor="let category of rootCategories; trackBy: trackByCategoryId"
-      (click)="editCategory(category.id!)"
-      title="Haz clic para editar">
+      (click)="viewCategoryDetail(category.id!)"
+      title="Haz clic para ver detalles y gestionar contactos">
 
       <div class="category-main">
         <div class="category-icon">📁</div>
@@ -83,11 +83,30 @@
       </div>
 
       <div class="category-actions" (click)="$event.stopPropagation()">
+        <!-- ✅ NUEVO: Botón para ver detalles -->
+        <button
+          class="btn btn-sm btn-outline-primary"
+          (click)="viewCategoryDetail(category.id!)"
+          title="Ver detalles y gestionar contactos">
+          👥 Gestionar
+        </button>
+
+        <!-- ✅ NUEVO: Botón para editar -->
         <button
           class="btn btn-sm btn-outline-info"
+          (click)="editCategory(category.id!)"
+          title="Editar categoría">
+          ✏️ Editar
+        </button>
+
+        <!-- ✅ MEJORADO: Botón para subcategorías -->
+        <button
+          class="btn btn-sm btn-outline-secondary"
+          (click)="createSubcategory(category.id!)"
           title="Crear subcategoría">
           📂 Subcategorías
         </button>
+
         <button
           class="btn btn-sm btn-outline-danger"
           (click)="deleteCategory(category.id!)"
@@ -103,8 +122,8 @@
     <div
       class="category-item clickable"
       *ngFor="let category of categories; trackBy: trackByCategoryId"
-      (click)="editCategory(category.id!)"
-      title="Haz clic para editar">
+      (click)="viewCategoryDetail(category.id!)"
+      title="Haz clic para ver detalles y gestionar contactos">
 
       <div class="category-main">
         <div class="category-icon">{{ isRootCategory(category) ? '📁' : '📂' }}</div>
@@ -128,6 +147,22 @@
       </div>
 
       <div class="category-actions" (click)="$event.stopPropagation()">
+        <!-- ✅ NUEVO: Botón para ver detalles -->
+        <button
+          class="btn btn-sm btn-outline-primary"
+          (click)="viewCategoryDetail(category.id!)"
+          title="Ver detalles y gestionar contactos">
+          👥 Gestionar
+        </button>
+
+        <!-- ✅ NUEVO: Botón para editar -->
+        <button
+          class="btn btn-sm btn-outline-info"
+          (click)="editCategory(category.id!)"
+          title="Editar categoría">
+          ✏️ Editar
+        </button>
+
         <button
           class="btn btn-sm btn-outline-danger"
           (click)="deleteCategory(category.id!)"
@@ -165,15 +200,16 @@
     </div>
   </div>
 
-  <!-- Información de ayuda -->
+  <!-- ✅ NUEVA: Información de ayuda mejorada -->
   <div class="help-section" *ngIf="!loading && getDisplayCategories().length > 0">
     <div class="help-content">
       <h4>💡 Cómo usar:</h4>
       <ul>
-        <li><strong>Haz clic en una categoría</strong> para editarla y gestionar sus contactos</li>
-        <li><strong>Vista Jerárquica:</strong> Muestra solo categorías principales</li>
-        <li><strong>Todas las Categorías:</strong> Muestra categorías y subcategorías</li>
-        <li><strong>Buscar:</strong> Encuentra categorías por nombre</li>
+        <li><strong>👥 Gestionar:</strong> Ver detalles y añadir/quitar contactos de la categoría</li>
+        <li><strong>✏️ Editar:</strong> Cambiar nombre y descripción de la categoría</li>
+        <li><strong>🌳 Vista Jerárquica:</strong> Muestra solo categorías principales</li>
+        <li><strong>📋 Todas las Categorías:</strong> Muestra categorías y subcategorías</li>
+        <li><strong>🔍 Buscar:</strong> Encuentra categorías por nombre</li>
       </ul>
     </div>
   </div>

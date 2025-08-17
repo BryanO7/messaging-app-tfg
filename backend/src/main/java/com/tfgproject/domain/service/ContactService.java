@@ -155,4 +155,5 @@ public class ContactService {
 
         return channels;
     }
+
 }

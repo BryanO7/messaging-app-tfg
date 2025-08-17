@@ -93,7 +93,10 @@ public class MessagingController {
     public ResponseEntity<MessageResponse> sendMessage(
             @Valid @RequestBody MessageRequest request) {
 
-        logger.info("📨 Solicitud de envío unificado. Tipo: {}", request.getType());
+        // ✅ CORREGIDO: Leer el canal en lugar del tipo
+        logger.info("📨 Solicitud de envío unificado. Canal: {}", request.getChannel());
+        logger.info("📋 Datos recibidos: to={}, channel={}, content={}",
+                request.getTo(), request.getChannel(), request.getContent());
 
         try {
             String messageId;
@@ -119,29 +122,116 @@ public class MessagingController {
                 return ResponseEntity.ok(MessageResponse.scheduled(messageId, scheduledTime));
 
             } else {
-                // Envío único
-                if ("SMS".equals(request.getType())) {
-                    messageId = messagePublisher.sendSmsToQueue(
-                            request.getTo(),
-                            request.getContent(),
-                            request.getSender()
-                    );
-                } else {
-                    messageId = messagePublisher.sendEmailToQueue(
-                            request.getTo(),
-                            request.getSubject(),
-                            request.getContent(),
-                            request.getAttachmentPath(),
-                            request.isHtml()
-                    );
+                // ✅ CORREGIDO: Envío único basado en el canal
+                String channel = request.getChannel() != null ? request.getChannel().toLowerCase() : "email";
+
+                switch (channel) {
+                    case "sms":
+                        logger.info("📱 Procesando como SMS");
+                        messageId = messagePublisher.sendSmsToQueue(
+                                request.getTo(),
+                                request.getContent(),
+                                request.getSender() != null ? request.getSender() : "TFG-App"
+                        );
+                        break;
+
+                    case "email":
+                        logger.info("📧 Procesando como EMAIL");
+                        messageId = messagePublisher.sendEmailToQueue(
+                                request.getTo(),
+                                request.getSubject(),
+                                request.getContent(),
+                                request.getAttachmentPath(),
+                                request.isHtml()
+                        );
+                        break;
+
+                    case "both":
+                        logger.info("📧📱 Procesando como AMBOS canales");
+
+                        // ✅ NUEVO: Primero enviar email
+                        String emailId = messagePublisher.sendEmailToQueue(
+                                request.getEmail() != null ? request.getEmail() : request.getTo(),
+                                request.getSubject(),
+                                request.getContent(),
+                                request.getAttachmentPath(),
+                                request.isHtml()
+                        );
+                        logger.info("📧 Email encolado con ID: {}", emailId);
+
+                        // ✅ NUEVO: Después enviar SMS
+                        String smsId = messagePublisher.sendSmsToQueue(
+                                request.getPhone() != null ? request.getPhone() : request.getTo(),
+                                request.getContent(),
+                                request.getSender() != null ? request.getSender() : "TFG-App"
+                        );
+                        logger.info("📱 SMS encolado con ID: {}", smsId);
+
+                        // Usar el ID del email como principal
+                        messageId = emailId;
+                        break;
+
+                    default:
+                        logger.warn("⚠️ Canal desconocido: {}", request.getChannel());
+                        return ResponseEntity.badRequest()
+                                .body(MessageResponse.failure("Canal no soportado: " + request.getChannel()));
                 }
-                return ResponseEntity.ok(MessageResponse.success("Mensaje enviado", messageId));
+
+                return ResponseEntity.ok(MessageResponse.success("Mensaje enviado exitosamente", messageId));
             }
 
         } catch (Exception e) {
             logger.error("❌ Error en envío unificado: {}", e.getMessage());
             return ResponseEntity.internalServerError()
                     .body(MessageResponse.failure("Error al enviar mensaje: " + e.getMessage()));
+        }
+    }
+
+    // === ENDPOINTS DIRECTOS PARA COMPATIBILIDAD ===
+
+    // Endpoint directo para email (para compatibilidad)
+    @PostMapping("/email")
+    public ResponseEntity<MessageResponse> sendEmail(@RequestBody MessageRequest request) {
+        logger.info("📧 Solicitud de email directo a: {}", request.getTo());
+
+        try {
+            String messageId = messagePublisher.sendEmailToQueue(
+                    request.getTo(),
+                    request.getSubject(),
+                    request.getContent(),
+                    request.getAttachmentPath(),
+                    request.isHtml()
+            );
+
+            MessageResponse response = MessageResponse.success("Email enviado exitosamente", messageId);
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            logger.error("❌ Error enviando email: {}", e.getMessage());
+            return ResponseEntity.internalServerError()
+                    .body(MessageResponse.failure("Error al enviar email: " + e.getMessage()));
+        }
+    }
+
+    // Endpoint directo para SMS (para compatibilidad)
+    @PostMapping("/sms")
+    public ResponseEntity<MessageResponse> sendSms(@RequestBody MessageRequest request) {
+        logger.info("📱 Solicitud de SMS directo a: {}", request.getTo());
+
+        try {
+            String messageId = messagePublisher.sendSmsToQueue(
+                    request.getTo(),
+                    request.getContent(),
+                    request.getSender() != null ? request.getSender() : "TFG-App"
+            );
+
+            MessageResponse response = MessageResponse.success("SMS enviado exitosamente", messageId);
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            logger.error("❌ Error enviando SMS: {}", e.getMessage());
+            return ResponseEntity.internalServerError()
+                    .body(MessageResponse.failure("Error al enviar SMS: " + e.getMessage()));
         }
     }
 
